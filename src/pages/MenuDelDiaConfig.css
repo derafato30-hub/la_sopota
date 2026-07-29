@@ -1,0 +1,109 @@
+/* MenuDelDiaConfig Layout - Premium Design */
+.daily-menu-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.ai-btn {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  transition: all var(--transition-speed);
+}
+
+.ai-btn:hover {
+  background-color: var(--warning-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(251, 191, 36, 0.2);
+}
+
+.config-card {
+  border-top: 4px solid var(--secondary-color);
+  background: linear-gradient(180deg, var(--surface-color), var(--bg-color));
+}
+
+.daily-prices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.selections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.selection-section {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.selection-section h3 {
+  color: var(--primary-color);
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px dashed rgba(255,255,255,0.1);
+  padding-bottom: 0.75rem;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius);
+  background-color: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+  transition: all var(--transition-speed);
+}
+
+.checkbox-item:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-color);
+  transform: translateX(4px);
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.empty-msg {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+@media (max-width: 768px) {
+  .daily-prices-grid {
+    grid-template-columns: 1fr;
+  }
+}
