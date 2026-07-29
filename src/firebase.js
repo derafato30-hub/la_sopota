@@ -6,14 +6,14 @@ import {
   persistentMultipleTabManager
 } from 'firebase/firestore';
 
-// TODO: Reemplaza esta configuración con los valores de tu proyecto Firebase
+// Configuración desde variables de entorno
 const firebaseConfig = {
-  apiKey: "AIzaSyDqYBCXfTSur3FsdYwp5Vv-T1OKuR30wkk",
-  authDomain: "adminlasopota.firebaseapp.com",
-  projectId: "adminlasopota",
-  storageBucket: "adminlasopota.firebasestorage.app",
-  messagingSenderId: "620555206446",
-  appId: "1:620555206446:web:ae00f1acae5a8de56544bf"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Inicializa la aplicación de Firebase

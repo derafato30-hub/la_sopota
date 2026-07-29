@@ -83,4 +83,4 @@ This application employs a strictly serverless architecture. The React frontend 
 *For demonstration purposes in this portfolio, sensitive API keys may be omitted or restricted. In a production environment, Firebase security rules are strictly implemented to prevent unauthorized database read/writes.*
 
 ---
-*Designed and developed by [Your Name/Handle]*
+*Designed and developed by class ing. Software II - 2026*
