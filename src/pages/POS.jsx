@@ -25,7 +25,7 @@ export default function POS() {
   // Payment State
   const [paymentModalOrder, setPaymentModalOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
-  const [paymentBank, setPaymentBank] = useState('BANPAIS');
+  const [paymentBank, setPaymentBank] = useState('Bac Antony');
   const [amountReceived, setAmountReceived] = useState('');
   const [modalDeliveryFee, setModalDeliveryFee] = useState(0);
   const [includeDeliveryInInvoice, setIncludeDeliveryInInvoice] = useState(true);
@@ -75,6 +75,7 @@ export default function POS() {
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [cartItemComment, setCartItemComment] = useState('');
   const [cartItemExtras, setCartItemExtras] = useState([]);
+  const [cartItemPrice, setCartItemPrice] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -235,8 +236,18 @@ export default function POS() {
       };
       
       if (paymentMethod === 'EFECTIVO') {
+        let expectedCollection = finalTotal;
+        if (paymentModalOrder.orderType === 'ENVIO_COBRADO') {
+           expectedCollection = paymentModalOrder.total;
+        }
+        
+        if (received < expectedCollection) {
+          alert(`El monto recibido (L. ${received}) es menor al total a cobrar en caja (L. ${expectedCollection}).`);
+          return;
+        }
+
         updateData.montoRecibido = received;
-        updateData.vuelto = received - finalTotal;
+        updateData.vuelto = received - expectedCollection;
       }
 
       await updateDoc(doc(db, 'orders', paymentModalOrder.id), updateData);
@@ -255,8 +266,9 @@ export default function POS() {
       
       const v = paymentMethod === 'EFECTIVO' ? updateData.vuelto : null;
       setPaymentModalOrder(null);
+      setPaymentMethod('EFECTIVO');
+      setPaymentBank('Bac Antony');
       setAmountReceived('');
-      setPaymentBank('BANPAIS');
       loadOrders();
       
       let msg = v !== null ? `Cobro exitoso.\nFactura generada: ${invoiceId}\n\nVuelto a entregar: L. ${v.toFixed(2)}` : `Cobro registrado.\nFactura generada: ${invoiceId}`;
@@ -389,15 +401,20 @@ export default function POS() {
     setEditingCartItem(cartItem);
     setCartItemComment(cartItem.comment || '');
     setCartItemExtras(cartItem.addedExtras || []);
+    setCartItemPrice(cartItem.price || 0);
   };
 
   const handleSaveCartItemEdits = () => {
+    const parsedPrice = parseFloat(cartItemPrice);
+    if (isNaN(parsedPrice) || parsedPrice < 0) return alert("Precio inválido");
+
     const updatedCart = cart.map(item => {
       if (item.cartId === editingCartItem.cartId) {
         return {
           ...item,
           comment: cartItemComment,
-          addedExtras: cartItemExtras
+          addedExtras: cartItemExtras,
+          price: parsedPrice
         };
       }
       return item;
@@ -979,6 +996,11 @@ export default function POS() {
             <h2>Personalizar: {editingCartItem.name}</h2>
             
             <div className="form-group" style={{marginTop: '1rem'}}>
+              <label>Precio Manual (L.):</label>
+              <input type="number" step="0.01" className="input-field" value={cartItemPrice} onChange={e => setCartItemPrice(e.target.value)} />
+            </div>
+
+            <div className="form-group">
               <label>Comentario para Cocina (ej. "Sin cebolla", "Para llevar")</label>
               <input type="text" className="input-field" value={cartItemComment} onChange={e => setCartItemComment(e.target.value)} placeholder="Opcional..." />
             </div>
@@ -1104,9 +1126,36 @@ export default function POS() {
               </div>
             )}
             
-            <div style={{fontSize: '1.5rem', fontWeight: 'bold', margin: '1rem 0', color: 'var(--accent-color)', textAlign: 'center'}}>
-              Total: L. {(paymentModalOrder.total + (paymentModalOrder.orderType === 'ENVIO_COBRADO' ? modalDeliveryFee : 0)).toFixed(2)}
-            </div>
+            {(() => {
+              const baseTotal = paymentModalOrder.total;
+              const hasDelivery = paymentModalOrder.orderType === 'ENVIO_COBRADO';
+              
+              const invoiceTotal = baseTotal + (hasDelivery && includeDeliveryInInvoice ? modalDeliveryFee : 0);
+              const finalTotal = baseTotal + (hasDelivery ? modalDeliveryFee : 0);
+              
+              let expectedToCollect = finalTotal;
+              let label = "Total a Cobrar en Caja:";
+              
+              if (hasDelivery) {
+                 if (paymentMethod === 'EFECTIVO') {
+                    expectedToCollect = baseTotal;
+                 } else if (paymentMethod === 'TRANSFERENCIA' && !deliveryPaidByTransfer) {
+                    expectedToCollect = baseTotal;
+                 }
+              }
+              
+              if (paymentMethod === 'TRANSFERENCIA') label = "Total a Recibir en Banco:";
+              if (paymentMethod === 'CREDITO') label = "Total a Cargar a Cuenta:";
+
+              return (
+                <div style={{fontSize: '1.5rem', fontWeight: 'bold', margin: '1rem 0', color: 'var(--accent-color)', textAlign: 'center'}}>
+                  <div style={{fontSize: '1.1rem', color: 'var(--text-secondary)'}}>
+                     Total Factura: L. {invoiceTotal.toFixed(2)}
+                  </div>
+                  {label} L. {expectedToCollect.toFixed(2)}
+                </div>
+              );
+            })()}
             
             <div className="form-group">
               <label>Método de Pago</label>
@@ -1148,11 +1197,17 @@ export default function POS() {
               <div className="form-group">
                 <label>Monto Recibido L.</label>
                 <input type="number" className="input-field" value={amountReceived} onChange={e => setAmountReceived(e.target.value)} autoFocus />
-                {amountReceived && Number(amountReceived) >= (paymentModalOrder.total + (paymentModalOrder.orderType === 'ENVIO_COBRADO' ? modalDeliveryFee : 0)) && (
-                  <div style={{marginTop: '0.5rem', fontSize: '1.2rem', color: '#4CAF50', fontWeight: 'bold', textAlign: 'center'}}>
-                    Vuelto: L. {(Number(amountReceived) - (paymentModalOrder.total + (paymentModalOrder.orderType === 'ENVIO_COBRADO' ? modalDeliveryFee : 0))).toFixed(2)}
-                  </div>
-                )}
+                {(() => {
+                  const hasDelivery = paymentModalOrder.orderType === 'ENVIO_COBRADO';
+                  let expectedToCollect = paymentModalOrder.total + (hasDelivery ? modalDeliveryFee : 0);
+                  if (hasDelivery) expectedToCollect = paymentModalOrder.total;
+
+                  return amountReceived && Number(amountReceived) >= expectedToCollect && (
+                    <div style={{marginTop: '0.5rem', fontSize: '1.2rem', color: '#4CAF50', fontWeight: 'bold', textAlign: 'center'}}>
+                      Vuelto: L. {(Number(amountReceived) - expectedToCollect).toFixed(2)}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

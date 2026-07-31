@@ -31,6 +31,7 @@ export default function Gastos() {
     abonosTransferencia: 0,
     gastosOperativos: 0,
     gastosTerceros: 0,
+    pagosRepartidores: 0,
     efectivoEsperado: 0,
     depositosTotal: 0, // transferenciasVentas + abonosTransferencia
     bancos: {
@@ -86,7 +87,8 @@ export default function Gastos() {
       ventaTotal: 0, creditoOtorgado: 0,
       efectivoVentas: 0, transferenciasVentas: 0,
       abonosEfectivo: 0, abonosTransferencia: 0,
-      gastosOperativos: 0, gastosTerceros: 0,
+      gastosOperativos: 0, gastosTerceros: 0, pagosRepartidores: 0,
+      enviosTransferencia: 0,
       efectivoEsperado: 0, depositosTotal: 0,
       bancos: { 'Bac Antony': 0, 'Bac Delmy': 0, 'Bac Elmer': 0, 'Banpais': 0, 'Atlantida': 0, 'Ficohsa': 0, 'Davivienda': 0, 'Occidente': 0 },
       abonosList: []
@@ -94,7 +96,7 @@ export default function Gastos() {
 
     snapOrders.forEach(doc => {
       const o = doc.data();
-      if (o.estado === 'CANCELADA') return;
+      if (o.estadoCocina === 'CANCELADA' || o.estadoPago === 'CANCELADO' || o.estado === 'CANCELADA') return;
 
       const food = o.foodTotal !== undefined ? o.foodTotal : (o.total - (o.deliveryFee || 0));
       stats.ventaTotal += food;
@@ -108,24 +110,24 @@ export default function Gastos() {
            stats.efectivoVentas += (o.total || 0); // Entra el total a caja
         }
       } else if (o.metodoPago === 'TRANSFERENCIA') {
-        let amt = o.total || 0;
+        let depositToBank = o.total || 0;
         
-        // Si fue envío cobrado por transferencia
         if (o.orderType === 'ENVIO_COBRADO') {
            if (o.deliveryPaidByTransfer) {
-              // El cliente depositó todo (comida + envío)
-              // El banco recibe el total, pero la caja de efectivo DEBE pagarle al repartidor
-              stats.gastosOperativos += (o.deliveryFee || 0); 
+              // El cliente depositó todo al banco (comida + envío)
+              stats.enviosTransferencia += (o.deliveryFee || 0);
            } else {
-              // El cliente depositó SOLO la comida, y le dio el efectivo al repartidor
-              amt = food; // El banco solo recibe el valor de la comida
+              // El cliente depositó SOLO la comida al banco
+              depositToBank = food;
            }
         }
         
-        stats.transferenciasVentas += amt;
+        // Para el cuadre de "Ventas del Día", solo tomamos en cuenta la comida
+        stats.transferenciasVentas += food; 
+        
         const bankName = o.banco || o.paymentBank;
         if (bankName && stats.bancos[bankName] !== undefined) {
-          stats.bancos[bankName] += amt;
+          stats.bancos[bankName] += depositToBank; // El banco sí recibe el depósito completo si aplicaba
         }
       }
     });
@@ -146,15 +148,19 @@ export default function Gastos() {
     snapExp.forEach(doc => {
       const e = doc.data();
       if (e.isThirdParty) {
-        stats.gastosTerceros += e.amount;
+        if (e.reason && e.reason.toLowerCase().includes('repartidor')) {
+          stats.pagosRepartidores += e.amount;
+        } else {
+          stats.gastosTerceros += e.amount;
+        }
       } else {
         stats.gastosOperativos += e.amount;
       }
     });
 
-    stats.depositosTotal = stats.transferenciasVentas + stats.abonosTransferencia;
+    stats.depositosTotal = stats.transferenciasVentas + stats.abonosTransferencia + stats.enviosTransferencia;
     const totalEfectivoEntrante = stats.efectivoVentas + stats.abonosEfectivo;
-    const totalSalidas = stats.gastosOperativos + stats.gastosTerceros;
+    const totalSalidas = stats.gastosOperativos + stats.gastosTerceros + stats.pagosRepartidores;
     stats.efectivoEsperado = totalEfectivoEntrante - totalSalidas;
 
     setCierreStats(stats);
@@ -314,56 +320,105 @@ export default function Gastos() {
               <button className="icon-btn" style={{fontSize: '1.5rem'}} onClick={() => setShowCierreModal(false)}><X size={24} /></button>
             </div>
             
-            <div style={{display: 'flex', flexDirection: 'column', gap: '0.25rem', backgroundColor: '#fff', border: '1px solid #ccc', color: '#000'}}>
-              <div style={{display: 'flex', borderBottom: '1px solid #ccc'}}>
-                <div style={{flex: 1, padding: '0.5rem', borderRight: '1px solid #ccc', fontWeight: 'bold'}}>fecha</div>
-                <div style={{flex: 1, padding: '0.5rem'}}>{new Date().toLocaleDateString()}</div>
-              </div>
-              <div style={{display: 'flex', borderBottom: '1px solid #ccc'}}>
-                <div style={{flex: 1, padding: '0.5rem', borderRight: '1px solid #ccc'}}>Venta total (Fiscal)</div>
-                <div style={{flex: 1, padding: '0.5rem', fontWeight: 'bold', color: 'var(--primary-color)'}}>L. {cierreStats.ventaTotal.toFixed(2)}</div>
-              </div>
-              <div style={{display: 'flex', borderBottom: '1px solid #ccc'}}>
-                <div style={{flex: 1, padding: '0.5rem', borderRight: '1px solid #ccc'}}>Efectivo (Ventas + Abonos)</div>
-                <div style={{flex: 1, padding: '0.5rem'}}>L. {(cierreStats.efectivoVentas + cierreStats.abonosEfectivo).toFixed(2)}</div>
-              </div>
-              <div style={{display: 'flex', borderBottom: '1px solid #ccc'}}>
-                <div style={{flex: 1, padding: '0.5rem', borderRight: '1px solid #ccc'}}>depositos (Ventas + Abonos)</div>
-                <div style={{flex: 1, padding: '0.5rem'}}>L. {cierreStats.depositosTotal.toFixed(2)}</div>
-              </div>
-              <div style={{display: 'flex', borderBottom: '1px solid #ccc'}}>
-                <div style={{flex: 1, padding: '0.5rem', borderRight: '1px solid #ccc'}}>gastos (Operativos + Repartidores)</div>
-                <div style={{flex: 1, padding: '0.5rem', color: 'var(--danger-color)'}}>L. {(cierreStats.gastosOperativos + cierreStats.gastosTerceros).toFixed(2)}</div>
-              </div>
-              <div style={{display: 'flex', borderBottom: '1px solid #ccc'}}>
-                <div style={{flex: 1, padding: '0.5rem', borderRight: '1px solid #ccc'}}>Credito Otorgado Hoy</div>
-                <div style={{flex: 1, padding: '0.5rem'}}>L. {cierreStats.creditoOtorgado.toFixed(2)}</div>
-              </div>
-            </div>
-
-            {/* SECCION ABONOS */}
-            <div style={{marginTop: '1rem'}}>
-              <button 
-                type="button" 
-                className="btn-secondary" 
-                style={{width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem'}}
-                onClick={() => setShowAbonosDetalleModal(true)}
-              >
-                <List size={18} /> Ver Detalle de Abonos Recibidos Hoy (L. {(cierreStats.abonosEfectivo + cierreStats.abonosTransferencia).toFixed(2)})
-              </button>
-            </div>
-
-            {/* DESGLOSE BANCOS */}
-            <div style={{marginTop: '1rem', backgroundColor: '#fff', border: '1px solid #ccc', color: '#000'}}>
-              <div style={{padding: '0.5rem', backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc', fontWeight: 'bold', textAlign: 'center'}}>
-                Desglose de Bancos
-              </div>
-              {Object.entries(cierreStats.bancos).map(([banco, monto]) => (
-                <div key={banco} style={{display: 'flex', borderBottom: '1px solid #ccc'}}>
-                  <div style={{flex: 1, padding: '0.5rem', borderRight: '1px solid #ccc'}}>{banco}</div>
-                  <div style={{flex: 1, padding: '0.5rem'}}>{monto > 0 ? `L. ${monto.toFixed(2)}` : '-'}</div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '1rem', color: '#000'}}>
+              
+              {/* SECCION 1: VENTAS DE HOY */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <h3 style={{backgroundColor: '#e3f2fd', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc'}}>1. Cuadre de Ventas del Día (Total: L. {cierreStats.ventaTotal.toFixed(2)})</h3>
+                <div style={{padding: '0.5rem', backgroundColor: '#fff'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Ventas cobradas en Efectivo:</span>
+                    <span>L. {cierreStats.efectivoVentas.toFixed(2)}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Ventas cobradas en Bancos:</span>
+                    <span>L. {cierreStats.transferenciasVentas.toFixed(2)}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Ventas dadas al Crédito:</span>
+                    <span>L. {cierreStats.creditoOtorgado.toFixed(2)}</span>
+                  </div>
+                  <div style={{textAlign: 'right', fontSize: '0.85rem', marginTop: '0.5rem', borderTop: '1px dashed #ccc', paddingTop: '0.25rem', color: (Math.abs(cierreStats.efectivoVentas + cierreStats.transferenciasVentas + cierreStats.creditoOtorgado - cierreStats.ventaTotal) < 0.01) ? 'green' : 'red'}}>
+                    Suma desglose: L. {(cierreStats.efectivoVentas + cierreStats.transferenciasVentas + cierreStats.creditoOtorgado).toFixed(2)}
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* SECCION 2: ABONOS DE HOY */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <div style={{backgroundColor: '#e8f5e9', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                   <h3 style={{margin: 0}}>2. Abonos Recibidos (L. {(cierreStats.abonosEfectivo + cierreStats.abonosTransferencia).toFixed(2)})</h3>
+                   <button type="button" className="btn-secondary" style={{padding: '0.2rem 0.5rem', fontSize: '0.8rem'}} onClick={() => setShowAbonosDetalleModal(true)}>Ver Detalles</button>
+                </div>
+                <div style={{padding: '0.5rem', backgroundColor: '#fff'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Abonos recibidos en Efectivo:</span>
+                    <span>L. {cierreStats.abonosEfectivo.toFixed(2)}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Abonos recibidos en Banco:</span>
+                    <span>L. {cierreStats.abonosTransferencia.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCION 3: SALIDAS Y GASTOS */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <h3 style={{backgroundColor: '#ffebee', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc'}}>3. Salidas de Efectivo (Total: L. {(cierreStats.gastosOperativos + cierreStats.gastosTerceros + cierreStats.pagosRepartidores).toFixed(2)})</h3>
+                <div style={{padding: '0.5rem', backgroundColor: '#fff'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Gastos Operativos:</span>
+                    <span className="danger-text">L. {cierreStats.gastosOperativos.toFixed(2)}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Pagos a Terceros (Varios):</span>
+                    <span className="danger-text">L. {cierreStats.gastosTerceros.toFixed(2)}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Pagos a Repartidores (Delivery):</span>
+                    <span className="danger-text">L. {cierreStats.pagosRepartidores.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCION 4: GRAN TOTAL A CUADRAR */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <h3 style={{backgroundColor: '#fff3e0', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc'}}>4. Totales Financieros (Lo que debe haber)</h3>
+                <div style={{padding: '1rem', backgroundColor: '#fff'}}>
+                  <div style={{backgroundColor: 'rgba(255,152,0,0.1)', padding: '1rem', border: '1px solid #ff9800', marginBottom: '1rem', borderRadius: '4px'}}>
+                     <div style={{display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem'}}>
+                       <span>EFECTIVO A ENTREGAR:</span>
+                       <span>L. {cierreStats.efectivoEsperado.toFixed(2)}</span>
+                     </div>
+                     <div style={{fontSize: '0.8rem', color: '#555', marginTop: '0.2rem'}}>
+                       (Ventas L. {cierreStats.efectivoVentas.toFixed(2)} + Abonos L. {cierreStats.abonosEfectivo.toFixed(2)} - Salidas L. {(cierreStats.gastosOperativos + cierreStats.gastosTerceros + cierreStats.pagosRepartidores).toFixed(2)})
+                     </div>
+                  </div>
+
+                  <div style={{backgroundColor: 'rgba(33,150,243,0.1)', padding: '1rem', border: '1px solid #2196f3', borderRadius: '4px'}}>
+                     <div style={{display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem'}}>
+                       <span>TOTAL EN BANCOS:</span>
+                       <span>L. {cierreStats.depositosTotal.toFixed(2)}</span>
+                     </div>
+                     <div style={{fontSize: '0.8rem', color: '#555', marginTop: '0.2rem', marginBottom: '0.5rem'}}>
+                       (Ventas L. {cierreStats.transferenciasVentas.toFixed(2)} + Abonos L. {cierreStats.abonosTransferencia.toFixed(2)}{cierreStats.enviosTransferencia > 0 ? ` + Envíos Depositados L. ${cierreStats.enviosTransferencia.toFixed(2)}` : ''})
+                     </div>
+                     
+                     <div style={{borderTop: '1px dashed #2196f3', paddingTop: '0.5rem'}}>
+                        {Object.entries(cierreStats.bancos).filter(([k,v]) => v > 0).map(([banco, monto]) => (
+                          <div key={banco} style={{display: 'flex', justifyContent: 'space-between', padding: '0.1rem 0'}}>
+                             <span>{banco}:</span>
+                             <span>L. {monto.toFixed(2)}</span>
+                          </div>
+                        ))}
+                        {Object.values(cierreStats.bancos).every(v => v === 0) && (
+                          <div style={{textAlign: 'center', color: '#777', fontSize: '0.9rem'}}>No hubo transferencias hoy</div>
+                        )}
+                     </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             <form onSubmit={handleCierreCaja} style={{marginTop: '2rem'}}>

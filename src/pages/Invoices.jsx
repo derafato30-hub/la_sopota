@@ -90,7 +90,9 @@ export default function Invoices() {
                     <td style={{padding: '1rem'}}>
                       <span className="badge" style={{backgroundColor: inv.estado === 'CRÉDITO' ? '#FF9800' : '#4CAF50'}}>{inv.estado}</span>
                     </td>
-                    <td style={{padding: '1rem', fontWeight: 'bold'}}>L. {inv.total?.toFixed(2)}</td>
+                    <td style={{padding: '1rem', fontWeight: 'bold'}}>
+                      L. {Number((!inv.includeDeliveryInInvoice && inv.deliveryFee) ? (inv.foodTotal || (inv.total - inv.deliveryFee)) : (inv.total || 0)).toFixed(2)}
+                    </td>
                     <td style={{padding: '1rem'}}>
                       <button className="btn-secondary" onClick={() => handlePrint(inv)}><Printer size={16} /> Imprimir / PDF</button>
                     </td>

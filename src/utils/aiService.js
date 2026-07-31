@@ -16,7 +16,7 @@ export const generarPropuestaMenuIA = async (historialVentas) => {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `
       Eres un experto analista gastronómico y gerente de restaurante de comida hondureña para el local "La Sopota".

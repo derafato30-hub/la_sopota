@@ -71,6 +71,53 @@ export default function KDS() {
     return scheduledDate > currentTime;
   };
 
+  const getOrderBadge = (type) => {
+    if (type === 'LOCAL') {
+      return <span className="badge-local">🍽️ LOCAL (Vidrio)</span>;
+    } else {
+      // Agrupa ENVIO_COBRADO, ENVIO_GRATIS, PARA_LLEVAR
+      return <span className="badge-llevar">🎒 EMPACAR (Llevar)</span>;
+    }
+  };
+
+  const parseItemName = (fullName) => {
+    let baseName = fullName;
+    let variation = null;
+    let sauces = null;
+    let tortillasOrExtras = null;
+
+    // Match [Salsas: ...] OR just [...] for Daily Menu sides
+    const sauceMatch = baseName.match(/\[Salsas: (.*?)\]/);
+    if (sauceMatch) {
+      sauces = sauceMatch[1];
+      baseName = baseName.replace(sauceMatch[0], '').trim();
+    } else {
+      const sidesMatch = baseName.match(/\[(.*?)\]/);
+      if (sidesMatch) {
+        sauces = sidesMatch[1];
+        baseName = baseName.replace(sidesMatch[0], '').trim();
+      }
+    }
+
+    const varMatch = baseName.match(/\((.*?)\)/);
+    if (varMatch) {
+      variation = varMatch[1];
+      baseName = baseName.replace(varMatch[0], '').trim();
+    }
+
+    // Match "+ 3 Tortillas" or similar at the end
+    const plusMatch = baseName.match(/\+ (.*)/);
+    if (plusMatch) {
+      tortillasOrExtras = plusMatch[1];
+      baseName = baseName.replace(plusMatch[0], '').trim();
+    }
+
+    // Clean up any trailing hyphens or spaces
+    baseName = baseName.replace(/-\s*$/, '').trim();
+
+    return { baseName, variation, sauces, tortillasOrExtras };
+  };
+
   const activeOrders = [];
   const futureOrders = [];
 
@@ -85,21 +132,48 @@ export default function KDS() {
   const renderOrderCard = (order, isFuture = false) => (
     <div key={order.id} className={`kds-card status-${(order.estadoCocina || '').toLowerCase()}`} style={{ opacity: isFuture ? 0.7 : 1 }}>
       <div className="kds-card-header">
-        <h3>{order.clientName} <span>({order.orderType})</span></h3>
-        <div className="kds-time">
-          <Clock size={16} />
-          <span>{isFuture ? `Agendada: ${order.scheduledTime}` : getElapsedTime(order.createdAt)}</span>
-        </div>
+        <h3>{order.clientName}</h3>
+        {getOrderBadge(order.orderType)}
+      </div>
+      <div className="kds-time-bar">
+        <Clock size={16} />
+        <span>{isFuture ? `Agendada: ${order.scheduledTime}` : `Tiempo: ${getElapsedTime(order.createdAt)}`}</span>
       </div>
 
       <div className="kds-items">
         <ul>
-          {order.items.map((item, idx) => (
-            <li key={idx}>
-              <strong>{item.qty}x</strong> {item.name}
-              {item.comment && <div className="kds-comment">💬 {item.comment}</div>}
-            </li>
-          ))}
+          {order.items.map((item, idx) => {
+            const { baseName, variation, sauces, tortillasOrExtras } = parseItemName(item.name);
+            return (
+              <li key={idx}>
+                <div className="kds-item-main">
+                  <span className="kds-qty">{item.qty}x</span>
+                  <span className="kds-name">{baseName}</span>
+                </div>
+                
+                {(variation || sauces || tortillasOrExtras || (item.addedExtras && item.addedExtras.length > 0)) && (
+                  <div className="kds-addons">
+                    {variation && <span className="kds-addon-badge var-badge">🔹 {variation}</span>}
+                    {sauces && <span className="kds-addon-badge sauce-badge">🥗 {sauces}</span>}
+                    {tortillasOrExtras && <span className="kds-addon-badge" style={{backgroundColor: '#f59e0b', color: '#000', border: '2px solid #000'}}>🌮 {tortillasOrExtras}</span>}
+                    
+                    {item.addedExtras && item.addedExtras.map((ext, i) => (
+                      <span key={i} className="kds-addon-badge" style={{backgroundColor: '#ec4899', color: '#000', border: '2px solid #000'}}>
+                        ➕ {ext.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {item.comment && (
+                  <div className="kds-comment-container">
+                    <span className="kds-comment-icon">⚠️</span>
+                    <div className="kds-comment-text">OJO: {item.comment.toUpperCase()}</div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
