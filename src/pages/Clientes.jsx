@@ -12,6 +12,7 @@ export default function Clientes() {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterActiveCredit, setFilterActiveCredit] = useState(false);
 
   // Estados del modal/formulario
   const [showModal, setShowModal] = useState(false);
@@ -167,12 +168,17 @@ export default function Clientes() {
     printInvoice(invoice);
   };
 
-  const filteredClientes = clientes.filter(c => 
-    (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (c.rtn || '').includes(searchTerm) || 
-    (c.phone || '').includes(searchTerm) || 
-    (c.razonSocial || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredClientes = clientes.filter(c => {
+    const matchesSearch = (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (c.rtn || '').includes(searchTerm) || 
+      (c.phone || '').includes(searchTerm) || 
+      (c.razonSocial || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (filterActiveCredit) {
+      return matchesSearch && (c.creditBalance > 0);
+    }
+    return matchesSearch;
+  });
 
   const handleSyncBalances = async () => {
     if (!window.confirm("¿Deseas recalcular los saldos de todos los clientes basándote en sus facturas pendientes? Esto corregirá cualquier inconsistencia.")) return;
@@ -222,15 +228,26 @@ export default function Clientes() {
         </div>
       </div>
 
-      <div className="search-bar">
-        <Search size={20} color="var(--text-secondary)" />
-        <input 
-          type="text" 
-          placeholder="Buscar por nombre, teléfono, RTN o Razón Social..." 
-          className="input-field search-input"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="search-bar" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+          <Search size={20} color="var(--text-secondary)" style={{ position: 'absolute', left: '1rem' }} />
+          <input 
+            type="text" 
+            placeholder="Buscar por nombre, teléfono, RTN o Razón Social..." 
+            className="input-field search-input"
+            style={{ paddingLeft: '3rem', width: '100%' }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', backgroundColor: 'var(--card-bg)', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <input 
+            type="checkbox" 
+            checked={filterActiveCredit}
+            onChange={(e) => setFilterActiveCredit(e.target.checked)}
+          />
+          <span style={{ fontWeight: 'bold' }}>Con saldo pendiente</span>
+        </label>
       </div>
 
       <div className="clientes-grid">
