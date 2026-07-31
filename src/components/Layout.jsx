@@ -35,7 +35,7 @@ export default function Layout() {
   // Helper para verificar permisos
   const hasAccess = (allowedRoles) => {
     if (!userRole) return false;
-    return allowedRoles.includes(userRole.toUpperCase());
+    return allowedRoles.includes(String(userRole).trim().toUpperCase());
   };
 
   return (
