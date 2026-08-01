@@ -789,7 +789,7 @@ export default function POS() {
       <div className={`pos-menu-section ${mobileTab !== 'menu' ? 'mobile-hidden' : ''}`}>
         <div className="pos-header" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
           <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '1rem'}}>
-            <h2>Menú</h2>
+            <h2 className="hide-title-mobile">Menú</h2>
             {dailyMenuConfig && (
               <div style={{display: 'flex', gap: '0.5rem'}}>
                 <button className="btn-primary highlight-btn" onClick={openDailyMenuModal}>
@@ -803,11 +803,11 @@ export default function POS() {
           </div>
 
           {outOfStockItems.length > 0 && (
-            <div style={{width: '100%', marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'rgba(255, 82, 82, 0.1)', border: '1px solid #FF5252', borderRadius: '8px'}}>
-              <strong style={{color: '#FF5252', display: 'block', marginBottom: '0.25rem'}}>⚠️ Productos Agotados:</strong>
-              <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem'}}>
+            <div style={{width: '100%', marginBottom: '1rem', padding: '0.5rem 0.75rem', backgroundColor: 'rgba(255, 82, 82, 0.1)', border: '1px solid #FF5252', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.5rem', overflowX: 'auto'}}>
+              <strong style={{color: '#FF5252', whiteSpace: 'nowrap', fontSize: '0.9rem'}}>⚠️ Agotados:</strong>
+              <div style={{display: 'flex', gap: '0.4rem'}}>
                 {outOfStockItems.map(item => (
-                  <span key={item.id} style={{fontSize: '0.85rem', color: '#FF5252', backgroundColor: 'rgba(255, 82, 82, 0.15)', padding: '0.2rem 0.5rem', borderRadius: '4px'}}>
+                  <span key={item.id} style={{fontSize: '0.8rem', color: '#FF5252', backgroundColor: 'rgba(255, 82, 82, 0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', whiteSpace: 'nowrap'}}>
                     {item.name}
                   </span>
                 ))}
@@ -860,7 +860,7 @@ export default function POS() {
 
       {/* SECCIÓN DERECHA: TICKET/CARRITO */}
       <div className={`pos-ticket-section card ${mobileTab !== 'ticket' ? 'mobile-hidden' : ''}`}>
-        <div className="ticket-header">
+        <div className="ticket-header hide-title-mobile">
           <h2><ShoppingCart size={24} /> Ticket</h2>
         </div>
 

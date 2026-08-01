@@ -340,7 +340,7 @@
     border-radius: var(--border-radius-lg);
   }
 
-  .mobile-hidden {
+  .mobile-hidden, .hide-title-mobile {
     display: none !important;
   }
   
