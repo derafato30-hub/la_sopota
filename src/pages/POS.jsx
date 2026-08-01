@@ -910,11 +910,11 @@ export default function POS() {
           </div>
           
           <div style={{display: 'flex', gap: '0.5rem', marginTop: '1rem'}}>
-            <button className="btn-primary send-btn" style={{flex: 1, padding: '1.25rem', fontSize: '1.2rem'}} onClick={() => {
+            <button className="btn-primary send-btn" onClick={() => {
               if (cart.length === 0) return alert('El carrito está vacío');
               setShowCheckoutModal(true);
             }}>
-              Configurar y Procesar Pedido ➔
+              Procesar Pedido ➔
             </button>
           </div>
           {editingOrderId && (
