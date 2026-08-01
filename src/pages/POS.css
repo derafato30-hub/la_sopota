@@ -288,28 +288,60 @@
   letter-spacing: 1px;
 }
 
+/* MOBILE TABS */
+.mobile-tabs-container {
+  display: none;
+}
+
 /* RESPONSIVE DESIGN */
 @media (max-width: 1024px) {
+  .mobile-tabs-container {
+    display: flex;
+    width: 100%;
+    background-color: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+  }
+
+  .mobile-tab-btn {
+    flex: 1;
+    padding: 1rem;
+    text-align: center;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .mobile-tab-btn.active {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border-bottom: 3px solid var(--primary-color);
+  }
+
   .pos-container {
     flex-direction: column;
-    height: 100% !important; /* Adapt to modal or viewport */
+    height: 100% !important; 
   }
   
-  .pos-menu-section {
-    flex: 1.5; /* more space for menu */
-    overflow-y: auto;
-    padding-bottom: 0;
-    min-height: 40vh; /* Ensure it never squishes to 0 */
+  .pos-menu-section, .pos-ticket-section {
+    flex: 1;
+    min-height: 0; /* Remove previous min-heights */
+    width: 100%;
+    margin-top: 0;
   }
 
   .pos-ticket-section {
-    flex: 1;
-    min-height: 30vh;
-    min-width: 100%;
-    margin-top: 0;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
-    box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
+    border-radius: var(--border-radius-lg);
+  }
+
+  .mobile-hidden {
+    display: none !important;
   }
   
   .kanban-board {

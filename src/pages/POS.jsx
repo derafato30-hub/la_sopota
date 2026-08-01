@@ -20,6 +20,9 @@ export default function POS() {
   // UI State
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [activeOrders, setActiveOrders] = useState([]);
+  
+  // Estado para las pestañas móviles del POS
+  const [mobileTab, setMobileTab] = useState('menu'); // 'menu' | 'ticket'
   const [editingOrderId, setEditingOrderId] = useState(null);
 
   // Payment State
@@ -765,8 +768,25 @@ export default function POS() {
             </div>
 
             <div className="pos-container" style={{flex: 1, overflow: 'hidden'}}>
+              
+              {/* PESTAÑAS MÓVILES */}
+              <div className="mobile-tabs-container">
+                <button 
+                  className={`mobile-tab-btn ${mobileTab === 'menu' ? 'active' : ''}`}
+                  onClick={() => setMobileTab('menu')}
+                >
+                  Menú
+                </button>
+                <button 
+                  className={`mobile-tab-btn ${mobileTab === 'ticket' ? 'active' : ''}`}
+                  onClick={() => setMobileTab('ticket')}
+                >
+                  Ticket ({cart.reduce((sum, item) => sum + item.qty, 0)})
+                </button>
+              </div>
+
               {/* SECCIÓN IZQUIERDA: MENÚ */}
-      <div className="pos-menu-section">
+      <div className={`pos-menu-section ${mobileTab !== 'menu' ? 'mobile-hidden' : ''}`}>
         <div className="pos-header" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
           <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '1rem'}}>
             <h2>Menú</h2>
@@ -839,7 +859,7 @@ export default function POS() {
       </div>
 
       {/* SECCIÓN DERECHA: TICKET/CARRITO */}
-      <div className="pos-ticket-section card">
+      <div className={`pos-ticket-section card ${mobileTab !== 'ticket' ? 'mobile-hidden' : ''}`}>
         <div className="ticket-header">
           <h2><ShoppingCart size={24} /> Ticket</h2>
         </div>
