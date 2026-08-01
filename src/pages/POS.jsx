@@ -864,9 +864,9 @@ export default function POS() {
           <h2><ShoppingCart size={24} /> Ticket</h2>
         </div>
 
-        <div className="client-info" style={{padding: '1rem', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)'}}>
+        <div className="client-info" style={{padding: '0.5rem 1rem', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)'}}>
            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-             <span style={{color: 'var(--text-secondary)'}}>Cliente seleccionado:</span>
+             <span style={{color: 'var(--text-secondary)', fontSize: '0.9rem'}}>Cliente seleccionado:</span>
              <strong style={{color: selectedCustomer ? 'var(--text-primary)' : 'var(--accent-color)'}}>
                {selectedCustomer ? `👤 ${selectedCustomer.name}` : 'Ninguno (Asignar al Procesar)'}
              </strong>
