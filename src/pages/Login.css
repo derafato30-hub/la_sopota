@@ -71,3 +71,32 @@
   font-size: 1rem;
   padding: 0.85rem;
 }
+
+.password-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-container .input-field {
+  padding-right: 2.5rem;
+  width: 100%;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  transition: color 0.2s;
+}
+
+.password-toggle-btn:hover {
+  color: var(--primary-color);
+}
