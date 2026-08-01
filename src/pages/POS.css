@@ -292,14 +292,24 @@
 @media (max-width: 1024px) {
   .pos-container {
     flex-direction: column;
-    height: auto;
+    height: 100% !important; /* Adapt to modal or viewport */
   }
   
+  .pos-menu-section {
+    flex: 1.5; /* more space for menu */
+    overflow-y: auto;
+    padding-bottom: 0;
+    min-height: 40vh; /* Ensure it never squishes to 0 */
+  }
+
   .pos-ticket-section {
+    flex: 1;
+    min-height: 30vh;
     min-width: 100%;
-    margin-top: 2rem;
+    margin-top: 0;
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-lg);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
   }
   
   .kanban-board {
