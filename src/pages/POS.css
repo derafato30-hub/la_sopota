@@ -338,6 +338,7 @@
 
   .pos-ticket-section {
     border-radius: var(--border-radius-lg);
+    min-width: 0 !important; /* Allow shrinking below 380px */
   }
 
   .ticket-footer {
