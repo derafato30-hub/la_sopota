@@ -48,6 +48,27 @@
   /* Glassmorphism */
   --glass-bg: rgba(22, 27, 34, 0.7);
   --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+
+  /* Animation */
+  --spring-easing: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Skeleton Loading Animation */
+@keyframes skeleton-loading {
+  0% { background-color: var(--surface-hover); }
+  50% { background-color: rgba(48, 54, 61, 0.8); }
+  100% { background-color: var(--surface-hover); }
+}
+
+.skeleton-box {
+  border-radius: var(--border-radius-sm);
+  animation: skeleton-loading 1.5s infinite ease-in-out;
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+.skeleton-box * {
+  visibility: hidden;
 }
 
 * {

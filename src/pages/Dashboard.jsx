@@ -99,7 +99,7 @@ export default function Dashboard() {
           </div>
           <div className="stat-info">
             <h3>Ventas Brutas</h3>
-            <h2>L. {stats.ventasHoy.toFixed(2)}</h2>
+            <h2 className={loading ? "skeleton-box" : ""}>{loading ? "L. 0.00" : `L. ${stats.ventasHoy.toFixed(2)}`}</h2>
           </div>
         </div>
 
@@ -109,7 +109,7 @@ export default function Dashboard() {
           </div>
           <div className="stat-info">
             <h3>Pedidos Pendientes</h3>
-            <h2>{stats.ordenesPendientes}</h2>
+            <h2 className={loading ? "skeleton-box" : ""}>{loading ? "00" : stats.ordenesPendientes}</h2>
           </div>
         </div>
 
@@ -119,7 +119,7 @@ export default function Dashboard() {
           </div>
           <div className="stat-info">
             <h3>Pedidos Completados</h3>
-            <h2>{stats.ordenesEntregadas}</h2>
+            <h2 className={loading ? "skeleton-box" : ""}>{loading ? "00" : stats.ordenesEntregadas}</h2>
           </div>
         </div>
       </div>

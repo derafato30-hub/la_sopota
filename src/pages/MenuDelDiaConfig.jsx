@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -142,26 +143,26 @@ export default function MenuDelDiaConfig() {
     const s = dailyConfig.sopasSeleccionadas?.length || 0;
 
     if (c > 0 || a > 0) {
-      if (c < 1) return alert("Si seleccionas acompañantes, debes seleccionar al menos 1 carne para el menú del día.");
-      if (a < 3) return alert("Debes seleccionar al menos 3 acompañantes para el menú del día.");
+      if (c < 1) return toast.error("Si seleccionas acompañantes, debes seleccionar al menos 1 carne para el menú del día.");
+      if (a < 3) return toast.error("Debes seleccionar al menos 3 acompañantes para el menú del día.");
     }
 
     if (c === 0 && a === 0 && s === 0) {
-      return alert("El menú está vacío. Selecciona sopas o almuerzo.");
+      return toast.error("El menú está vacío. Selecciona sopas o almuerzo.");
     }
 
     try {
       const menuRef = doc(db, 'dailyMenus', todayDateStr);
       await setDoc(menuRef, dailyConfig);
       await logAuditAction('CONFIGURAR_MENU_DIA', 'MENU', `Menú configurado para la fecha: ${todayDateStr}`, currentUser);
-      alert('Menú del día guardado exitosamente.');
+      toast.error('Menú del día guardado exitosamente.');
     } catch (error) {
       console.error("Error guardando el menú del día:", error);
     }
   };
 
   const solicitarPropuestaIA = () => {
-    alert("Analizando tendencias de venta... (Integración Gemini configurada en el Dashboard)");
+    toast.error("Analizando tendencias de venta... (Integración Gemini configurada en el Dashboard)");
   };
 
   const openNewItemModal = (type, prefillName = '') => {
@@ -211,10 +212,10 @@ export default function MenuDelDiaConfig() {
       
       setShowNewItemModal(false);
       fetchCatalogAndTodayMenu(todayDateStr);
-      alert('Elemento guardado exitosamente.');
+      toast.error('Elemento guardado exitosamente.');
     } catch (error) {
       console.error("Error guardando elemento:", error);
-      alert("Hubo un error al guardar.");
+      toast.error("Hubo un error al guardar.");
     }
   };
 

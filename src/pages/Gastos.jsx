@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { collection, getDocs, addDoc, serverTimestamp, query, orderBy, limit, where, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -168,7 +169,7 @@ export default function Gastos() {
 
   const handleSaveGasto = async (e) => {
     e.preventDefault();
-    if (gastoData.amount <= 0) return alert("El monto debe ser válido.");
+    if (gastoData.amount <= 0) return toast.error("El monto debe ser válido.");
     
     try {
       await addDoc(collection(db, 'expenses'), {
@@ -207,7 +208,7 @@ export default function Gastos() {
       setShowCierreModal(false);
       setCierreData({ actualCash: 0, notes: '' });
       fetchGastosYCierres();
-      alert(`Cierre registrado. Diferencia de caja: L. ${diff}`);
+      toast.error(`Cierre registrado. Diferencia de caja: L. ${diff}`);
     } catch (error) {
       console.error("Error realizando el cierre:", error);
     }

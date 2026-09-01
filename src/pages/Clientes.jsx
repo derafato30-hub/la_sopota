@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { collection, getDocs, addDoc, doc, updateDoc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -72,7 +73,7 @@ export default function Clientes() {
 
   const handleAbono = async (e) => {
     e.preventDefault();
-    if (abonoAmount <= 0) return alert("El abono debe ser mayor a 0");
+    if (abonoAmount <= 0) return toast.error("El abono debe ser mayor a 0");
     
     try {
       // LOGICA DE ABONO A FACTURAS (FIFO)
@@ -204,11 +205,11 @@ export default function Clientes() {
           await updateDoc(doc(db, 'clients', cliente.id), { creditBalance: correctDebt });
         }
       }
-      alert("¡Saldos sincronizados correctamente!");
+      toast.error("¡Saldos sincronizados correctamente!");
       fetchClientes();
     } catch (error) {
       console.error(error);
-      alert("Error al sincronizar saldos");
+      toast.error("Error al sincronizar saldos");
     } finally {
       setLoading(false);
     }

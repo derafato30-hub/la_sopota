@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { collection, query, where, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +11,22 @@ import './KDS.css';
 export default function KDS() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState([]);
+
+  const [prevOrdersCount, setPrevOrdersCount] = useState(0);
+
+  useEffect(() => {
+    if (orders.length > prevOrdersCount && prevOrdersCount !== 0) {
+      // Intentar reproducir sonido de campana
+      try {
+        const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6ccf3232f.mp3?filename=ding-idea-40142.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
+        toast.info('¡Nueva Orden Entrante!');
+      } catch (err) {}
+    }
+    setPrevOrdersCount(orders.length);
+  }, [orders.length]);
+
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -130,7 +148,24 @@ export default function KDS() {
   });
 
   const renderOrderCard = (order, isFuture = false) => (
-    <div key={order.id} className={`kds-card status-${(order.estadoCocina || '').toLowerCase()}`} style={{ opacity: isFuture ? 0.7 : 1 }}>
+    <motion.div 
+      layout
+      initial={{ opacity: 0, scale: 0.9 }} 
+      animate={{ opacity: isFuture ? 0.7 : 1, scale: 1 }} 
+      exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.2}
+      onDragEnd={(e, info) => {
+        if (info.offset.x > 150) {
+          const nextStatus = order.estadoCocina === 'PENDIENTE' ? 'PREPARANDO' : 'LISTO';
+          changeStatus(order.id, nextStatus, order.clientName);
+          toast.success(`${order.clientName} -> ${nextStatus}`);
+        }
+      }}
+      key={order.id} 
+      className={`kds-card status-${(order.estadoCocina || '').toLowerCase()}`}
+    >
       <div className="kds-card-header">
         <h3>{order.clientName}</h3>
         {getOrderBadge(order.orderType)}
@@ -196,7 +231,7 @@ export default function KDS() {
           </button>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 
   return (

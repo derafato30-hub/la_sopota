@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { collection, getDocs, addDoc, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -128,7 +129,7 @@ export default function POS() {
 
   const handleMarkDelivered = (order) => {
     if (order.estadoPago === 'PENDIENTE') {
-      alert("No puedes marcar como entregado un pedido que no ha sido pagado.\n\nPor favor, cóbralo primero.");
+      toast.error("No puedes marcar como entregado un pedido que no ha sido pagado.\n\nPor favor, cóbralo primero.");
       return;
     }
     updateOrderStatus(order.id, 'estadoEntrega', 'ENTREGADO');
@@ -174,10 +175,10 @@ export default function POS() {
 
       await logAuditAction('CANCELAR_ORDEN', 'POS', `Orden cancelada para ${order.clientName} (Total: L.${order.total})`, currentUser);
       loadOrders();
-      alert("La orden ha sido cancelada exitosamente.");
+      toast.success("La orden ha sido cancelada exitosamente.");
     } catch (e) {
       console.error(e);
-      alert("Hubo un error al cancelar la orden.");
+      toast.error("Hubo un error al cancelar la orden.");
     }
   };
 
@@ -187,7 +188,7 @@ export default function POS() {
     const received = Number(amountReceived);
     
     if (paymentMethod === 'EFECTIVO' && received < paymentModalOrder.total) {
-      return alert('El monto recibido es menor al total');
+      return toast.error('El monto recibido es menor al total');
     }
 
     try {
@@ -245,7 +246,7 @@ export default function POS() {
         }
         
         if (received < expectedCollection) {
-          alert(`El monto recibido (L. ${received}) es menor al total a cobrar en caja (L. ${expectedCollection}).`);
+          toast.error(`El monto recibido (L. ${received}) es menor al total a cobrar en caja (L. ${expectedCollection}).`);
           return;
         }
 
@@ -379,7 +380,7 @@ export default function POS() {
 
   const handleConfirmVariation = () => {
     if (selectedItem.hasVariations && !selectedVariation) {
-      return alert("Selecciona una variación");
+      return toast.error("Selecciona una variación");
     }
     if (selectedItem.type === 'alitas' && selectedSauces.length === 0) {
       // Optional constraint, maybe they want plain wings
@@ -409,7 +410,7 @@ export default function POS() {
 
   const handleSaveCartItemEdits = () => {
     const parsedPrice = parseFloat(cartItemPrice);
-    if (isNaN(parsedPrice) || parsedPrice < 0) return alert("Precio inválido");
+    if (isNaN(parsedPrice) || parsedPrice < 0) return toast.error("Precio inválido");
 
     const updatedCart = cart.map(item => {
       if (item.cartId === editingCartItem.cartId) {
@@ -459,7 +460,7 @@ export default function POS() {
   };
 
   const handleAddDailyMenuToCart = () => {
-    if (!dmSelectedCarne) return alert("Debes seleccionar una carne");
+    if (!dmSelectedCarne) return toast.error("Debes seleccionar una carne");
     const maxSides = dmSize === 'COMPLETO' ? dailyMenuConfig.acompanantesCompleto : dailyMenuConfig.acompanantesMedio;
     // flatten sides with quantities
     const flatSides = [];
@@ -523,7 +524,7 @@ export default function POS() {
   const total = subtotalItems;
 
   const handleReprintInvoice = async (order) => {
-    if (!order.invoiceId) return alert("Esta orden no tiene una factura asociada.");
+    if (!order.invoiceId) return toast.error("Esta orden no tiene una factura asociada.");
     try {
       const invDoc = await getDoc(doc(db, 'invoices', order.invoiceId));
       if (invDoc.exists()) {
@@ -534,14 +535,14 @@ export default function POS() {
           deliveryFee: order.deliveryFee
         });
       } else {
-        alert("No se encontró el registro de la factura.");
+        toast.error("No se encontró el registro de la factura.");
       }
     } catch(e) { console.error(e); }
   };
 
   const handleSendToKitchen = async (asDraft = false) => {
-    if(cart.length === 0) return alert("El carrito está vacío");
-    if(!selectedCustomer) return alert("Debes seleccionar o crear un cliente para la orden.");
+    if(cart.length === 0) return toast.error("El carrito está vacío");
+    if(!selectedCustomer) return toast.error("Debes seleccionar o crear un cliente para la orden.");
 
     try {
       if (editingOrderId) {
@@ -555,7 +556,7 @@ export default function POS() {
           scheduledTime: scheduledTime || null
         });
         await logAuditAction('ACTUALIZAR_ORDEN', 'POS', `Orden actualizada para ${selectedCustomer.name}`, currentUser);
-        alert(asDraft ? "¡Borrador guardado!" : "¡Orden actualizada!");
+        toast.success(asDraft ? "¡Borrador guardado!" : "¡Orden actualizada!");
       } else {
         const order = {
           clienteId: selectedCustomer.id,
@@ -577,7 +578,7 @@ export default function POS() {
 
         await addDoc(collection(db, 'orders'), order);
         await logAuditAction(asDraft ? 'NUEVO_BORRADOR' : 'ENVIAR_ORDEN', 'POS', `Orden para ${order.clientName} por L. ${total}`, currentUser);
-        alert(asDraft ? "¡Orden guardada como borrador!" : "¡Orden enviada a cocina!");
+        toast.success(asDraft ? "¡Orden guardada como borrador!" : "¡Orden enviada a cocina!");
       }
       
       
@@ -911,7 +912,7 @@ export default function POS() {
           
           <div style={{display: 'flex', gap: '0.5rem', marginTop: '1rem'}}>
             <button className="btn-primary send-btn" onClick={() => {
-              if (cart.length === 0) return alert('El carrito está vacío');
+              if (cart.length === 0) return toast.error('El carrito está vacío');
               setShowCheckoutModal(true);
             }}>
               Procesar Pedido ➔
@@ -1421,7 +1422,7 @@ export default function POS() {
                 </button>
                 <button className="btn-primary send-btn" style={{flex: 2, padding: '1rem'}} onClick={() => {
                    if (!selectedCustomer) {
-                     alert("⚠️ Por favor, busca y selecciona un cliente primero (Paso 1).");
+                     toast.error("⚠️ Por favor, busca y selecciona un cliente primero (Paso 1).");
                      return;
                    }
                    handleSendToKitchen(false);
@@ -1462,7 +1463,7 @@ export default function POS() {
             <div className="form-actions" style={{marginTop: '1.5rem'}}>
               <button className="btn-secondary" onClick={() => setShowNewCustomerForm(false)}>Cancelar</button>
               <button className="btn-primary" onClick={async () => {
-                if (!newCustomer.name.trim()) return alert("El nombre es obligatorio");
+                if (!newCustomer.name.trim()) return toast.error("El nombre es obligatorio");
                 try {
                   const custDoc = await addDoc(collection(db, 'clients'), { ...newCustomer, hasCredit: false, creditBalance: 0 });
                   const finalCust = { id: custDoc.id, ...newCustomer, hasCredit: false, creditBalance: 0 };
