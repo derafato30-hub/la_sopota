@@ -4,7 +4,7 @@ import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
-import { Calendar, Save, Sparkles } from 'lucide-react';
+import { Calendar, Save, Sparkles, ChevronUp, ChevronDown, CheckCircle, Search, Edit, Trash2 } from 'lucide-react';
 import './MenuDelDiaConfig.css';
 
 export default function MenuDelDiaConfig() {
