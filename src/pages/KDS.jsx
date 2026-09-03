@@ -158,7 +158,7 @@ export default function KDS() {
       dragElastic={0.2}
       onDragEnd={(e, info) => {
         if (info.offset.x > 150) {
-          const nextStatus = order.estadoCocina === 'PENDIENTE' ? 'PREPARANDO' : 'LISTO';
+          const nextStatus = 'LISTO';
           changeStatus(order.id, nextStatus, order.clientName);
           toast.success(`${order.clientName} -> ${nextStatus}`);
         }
@@ -167,12 +167,14 @@ export default function KDS() {
       className={`kds-card status-${(order.estadoCocina || '').toLowerCase()}`}
     >
       <div className="kds-card-header">
-        <h3>{order.clientName}</h3>
-        {getOrderBadge(order.orderType)}
-      </div>
-      <div className="kds-time-bar">
-        <Clock size={16} />
-        <span>{isFuture ? `Agendada: ${order.scheduledTime}` : `Tiempo: ${getElapsedTime(order.createdAt)}`}</span>
+        <div className="kds-card-title">
+          <h3>{order.clientName}</h3>
+          {getOrderBadge(order.orderType)}
+        </div>
+        <div className="kds-time-bar">
+          <Clock size={14} />
+          <span>{isFuture ? order.scheduledTime : getElapsedTime(order.createdAt)}</span>
+        </div>
       </div>
 
       <div className="kds-items">
@@ -188,12 +190,12 @@ export default function KDS() {
                 
                 {(variation || sauces || tortillasOrExtras || (item.addedExtras && item.addedExtras.length > 0)) && (
                   <div className="kds-addons">
-                    {variation && <span className="kds-addon-badge var-badge">🔹 {variation}</span>}
-                    {sauces && <span className="kds-addon-badge sauce-badge">🥗 {sauces}</span>}
-                    {tortillasOrExtras && <span className="kds-addon-badge" style={{backgroundColor: '#f59e0b', color: '#000', border: '2px solid #000'}}>🌮 {tortillasOrExtras}</span>}
+                    {variation && <span className="kds-addon-text var-text">🔹 {variation}</span>}
+                    {sauces && <span className="kds-addon-text sauce-text">🥗 {sauces}</span>}
+                    {tortillasOrExtras && <span className="kds-addon-text extra-text">🌮 {tortillasOrExtras}</span>}
                     
                     {item.addedExtras && item.addedExtras.map((ext, i) => (
-                      <span key={i} className="kds-addon-badge" style={{backgroundColor: '#ec4899', color: '#000', border: '2px solid #000'}}>
+                      <span key={i} className="kds-addon-text add-text">
                         ➕ {ext.name}
                       </span>
                     ))}
@@ -213,16 +215,7 @@ export default function KDS() {
       </div>
 
       <div className="kds-actions">
-        {order.estadoCocina === 'PENDIENTE' && (
-          <button 
-            className="btn-secondary" 
-            onClick={() => changeStatus(order.id, 'PREPARANDO', order.clientName)}
-          >
-            Cocinar Ahora
-          </button>
-        )}
-        
-        {order.estadoCocina === 'PREPARANDO' && (
+        { (order.estadoCocina === 'PENDIENTE' || order.estadoCocina === 'PREPARANDO') && (
           <button 
             className="btn-primary ready-btn" 
             onClick={() => changeStatus(order.id, 'LISTO', order.clientName)}
@@ -241,27 +234,33 @@ export default function KDS() {
         <p>Órdenes urgentes: {activeOrders.length}</p>
       </div>
 
-      <div className="kds-grid">
-        {activeOrders.length === 0 && (
-          <div className="kds-empty">
-            <ChefHat size={64} opacity={0.2} />
-            <h2>No hay órdenes urgentes</h2>
-            <p>La cocina está al día. ¡Buen trabajo!</p>
-          </div>
-        )}
+      <motion.div layout className="kds-grid">
+        <AnimatePresence>
+          {activeOrders.length === 0 && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="kds-empty"
+            >
+              <ChefHat size={64} opacity={0.2} />
+              <h2>No hay órdenes urgentes</h2>
+              <p>La cocina está al día. ¡Buen trabajo!</p>
+            </motion.div>
+          )}
 
-        {activeOrders.map((order) => renderOrderCard(order, false))}
-      </div>
+          {activeOrders.map((order) => renderOrderCard(order, false))}
+        </AnimatePresence>
+      </motion.div>
 
       {futureOrders.length > 0 && (
         <>
-          <div className="kds-header" style={{marginTop: '2rem', borderTop: '2px solid var(--border-color)', paddingTop: '1rem'}}>
-            <h2><Clock size={24} /> Órdenes Programadas a Futuro</h2>
-            <p>{futureOrders.length} esperando su hora</p>
-          </div>
-          <div className="kds-grid">
-            {futureOrders.map((order) => renderOrderCard(order, true))}
-          </div>
+          <h2 className="kds-future-title">Órdenes Agendadas ({futureOrders.length})</h2>
+          <motion.div layout className="kds-grid future-grid">
+            <AnimatePresence>
+              {futureOrders.map((order) => renderOrderCard(order, true))}
+            </AnimatePresence>
+          </motion.div>
         </>
       )}
     </div>
