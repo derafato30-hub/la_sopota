@@ -13,7 +13,10 @@ import {
   ChefHat,
   Calendar,
   Receipt,
-  UserCog
+  UserCog,
+  Menu,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import './Layout.css';
 
@@ -22,6 +25,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   const handleLogout = async () => {
     try {
@@ -61,10 +65,15 @@ export default function Layout() {
       {isSidebarOpen && <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)}></div>}
 
       {/* Sidebar Elegante */}
-      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <ChefHat size={32} color="var(--primary-color)" />
-          <h2>La Sopota</h2>
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''} ${!isDesktopSidebarOpen ? 'desktop-closed' : ''}`}>
+        <div className="sidebar-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+            <ChefHat size={32} color="var(--primary-color)" />
+            <h2>La Sopota</h2>
+          </div>
+          <button className="desktop-toggle-btn hide-on-mobile" onClick={() => setIsDesktopSidebarOpen(false)} title="Ocultar menú">
+            <ChevronLeft size={24} />
+          </button>
         </div>
         
         <nav className="sidebar-nav">
@@ -145,7 +154,27 @@ export default function Layout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content">
+      <main className="main-content" style={{position: 'relative'}}>
+        {!isDesktopSidebarOpen && (
+          <button 
+            className="desktop-toggle-btn show-btn hide-on-mobile" 
+            onClick={() => setIsDesktopSidebarOpen(true)}
+            title="Mostrar menú"
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              left: '1rem',
+              zIndex: 90,
+              backgroundColor: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
+              padding: '0.5rem',
+              borderRadius: 'var(--border-radius)',
+              boxShadow: 'var(--box-shadow-sm)'
+            }}
+          >
+            <Menu size={24} color="var(--primary-color)" />
+          </button>
+        )}
         <Outlet />
       </main>
     </div>
