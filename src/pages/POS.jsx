@@ -28,6 +28,7 @@ export default function POS() {
 
   // Payment State
   const [paymentModalOrder, setPaymentModalOrder] = useState(null);
+  const [unpaidWarningOrder, setUnpaidWarningOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [paymentBank, setPaymentBank] = useState('Bac Antony');
   const [amountReceived, setAmountReceived] = useState('');
@@ -1299,7 +1300,7 @@ export default function POS() {
               <button className="btn-secondary" onClick={() => setShowDispatchModal(false)}>Cancelar</button>
               <button className="btn-primary" onClick={async () => {
                 await updateDoc(doc(db, 'orders', dispatchOrder.id), {
-                  estadoEntrega: 'EN_RUTA',
+                  estadoEntrega: 'ENTREGADO',
                   driverName,
                   driverPhone
                 });
