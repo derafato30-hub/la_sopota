@@ -279,3 +279,48 @@
   padding: 0.5rem;
   font-size: 1rem;
 }
+
+/* Estilos por tipo de orden */
+.kds-card.card-local {
+  background-color: #f97316; /* Naranja sólido */
+  border-top-color: #c2410c;
+}
+.kds-card.card-local .kds-card-title h3,
+.kds-card.card-local .kds-time-bar {
+  color: #fff;
+}
+.kds-card.card-local .badge-local {
+  background-color: #fff;
+  color: #f97316;
+}
+.kds-card.card-local .kds-items {
+  background-color: #fffaf0; /* Muy sutilmente naranja */
+}
+.kds-card.card-local .kds-items li:nth-child(even) {
+  background-color: #ffedd5; 
+}
+.kds-card.card-local .kds-items li {
+  border-bottom: 1px solid #fdba74;
+}
+
+.kds-card.card-llevar {
+  background-color: #3b82f6; /* Azul sólido */
+  border-top-color: #1d4ed8;
+}
+.kds-card.card-llevar .kds-card-title h3,
+.kds-card.card-llevar .kds-time-bar {
+  color: #fff;
+}
+.kds-card.card-llevar .badge-llevar {
+  background-color: #fff;
+  color: #3b82f6;
+}
+.kds-card.card-llevar .kds-items {
+  background-color: #f0fdfa; /* Muy sutilmente cyan/azul */
+}
+.kds-card.card-llevar .kds-items li:nth-child(even) {
+  background-color: #dbeafe; 
+}
+.kds-card.card-llevar .kds-items li {
+  border-bottom: 1px solid #93c5fd;
+}

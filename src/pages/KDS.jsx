@@ -91,14 +91,16 @@ export default function KDS() {
 
   const getOrderBadge = (type) => {
     if (type === 'LOCAL') {
-      return <span className="badge-local">🍽️ LOCAL (Vidrio)</span>;
+      return <span className="badge-local">COMER AQUÍ</span>;
     } else {
-      // Agrupa ENVIO_COBRADO, ENVIO_GRATIS, PARA_LLEVAR
-      return <span className="badge-llevar">🎒 EMPACAR (Llevar)</span>;
+      return <span className="badge-llevar">LLEVAR</span>;
     }
   };
-
-  const parseItemName = (fullName) => {
+  
+  const getCardTypeClass = (type) => {
+    return type === 'LOCAL' ? 'card-local' : 'card-llevar';
+  };
+const parseItemName = (fullName) => {
     let baseName = fullName;
     let variation = null;
     let sauces = null;
@@ -164,7 +166,7 @@ export default function KDS() {
         }
       }}
       key={order.id} 
-      className={`kds-card status-${(order.estadoCocina || '').toLowerCase()}`}
+      className={`kds-card ${getCardTypeClass(order.orderType)} status-${(order.estadoCocina || '').toLowerCase()}`}
     >
       <div className="kds-card-header">
         <div className="kds-card-title">
