@@ -243,10 +243,13 @@ export default function MenuDelDiaConfig() {
   };
 
   if (loading) return <div className="card">Cargando configuración...</div>;
-
   const cLen = dailyConfig.carnesSeleccionadas?.length || 0;
   const aLen = dailyConfig.acompanantesSeleccionados?.length || 0;
   const sLen = dailyConfig.sopasSeleccionadas?.length || 0;
+
+  const selectedSopasNames = getSelectedNames(dailyConfig.sopasSeleccionadas, catalogoSopas);
+  const selectedCarnesNames = getSelectedNames(dailyConfig.carnesSeleccionadas, catalogoCarnes);
+  const selectedAcompsNames = getSelectedNames(dailyConfig.acompanantesSeleccionados, catalogoAcompanantes);
 
   return (
     <div className="daily-menu-container" style={{paddingBottom: '80px'}}>
