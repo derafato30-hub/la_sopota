@@ -280,47 +280,115 @@
   font-size: 1rem;
 }
 
-/* Estilos por tipo de orden */
+/* Estilos Premium y Sutiles por tipo de orden */
 .kds-card.card-local {
-  background-color: #f97316; /* Naranja sólido */
-  border-top-color: #c2410c;
-}
-.kds-card.card-local .kds-card-title h3,
-.kds-card.card-local .kds-time-bar {
-  color: #fff;
+  background-color: var(--surface-color);
+  border: 1px solid rgba(246, 167, 75, 0.2);
+  border-top: 4px solid var(--primary-color);
 }
 .kds-card.card-local .badge-local {
-  background-color: #fff;
-  color: #f97316;
-}
-.kds-card.card-local .kds-items {
-  background-color: #fffaf0; /* Muy sutilmente naranja */
-}
-.kds-card.card-local .kds-items li:nth-child(even) {
-  background-color: #ffedd5; 
-}
-.kds-card.card-local .kds-items li {
-  border-bottom: 1px solid #fdba74;
+  background-color: rgba(246, 167, 75, 0.15);
+  color: var(--primary-color);
+  border: 1px solid rgba(246, 167, 75, 0.3);
 }
 
 .kds-card.card-llevar {
-  background-color: #3b82f6; /* Azul sólido */
-  border-top-color: #1d4ed8;
-}
-.kds-card.card-llevar .kds-card-title h3,
-.kds-card.card-llevar .kds-time-bar {
-  color: #fff;
+  background-color: var(--surface-color);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-top: 4px solid #3b82f6;
 }
 .kds-card.card-llevar .badge-llevar {
-  background-color: #fff;
-  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
-.kds-card.card-llevar .kds-items {
-  background-color: #f0fdfa; /* Muy sutilmente cyan/azul */
+
+/* KDS Items list adaptado al Dark Mode */
+.kds-items {
+  flex-grow: 1;
+  background-color: transparent !important;
+  color: var(--text-primary) !important;
+  margin-top: 0.5rem;
 }
-.kds-card.card-llevar .kds-items li:nth-child(even) {
-  background-color: #dbeafe; 
+
+.kds-items li {
+  font-size: 1.05rem !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 0.5rem !important;
 }
-.kds-card.card-llevar .kds-items li {
-  border-bottom: 1px solid #93c5fd;
+.kds-items li:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+.kds-name {
+  color: var(--text-primary) !important;
+}
+
+.kds-qty {
+  color: var(--primary-color) !important;
+  background: transparent !important;
+  font-size: 1.2rem !important;
+  padding: 0 !important;
+  min-width: 30px !important;
+  text-align: left !important;
+}
+
+/* Addons sutiles */
+.kds-addon-text {
+  color: var(--text-secondary) !important;
+  font-size: 0.85rem !important;
+}
+
+/* Botón Listo Premium */
+.ready-btn {
+  background-color: rgba(46, 160, 67, 0.1) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(46, 160, 67, 0.4) !important;
+  border-radius: var(--border-radius-sm) !important;
+  transition: all 0.2s ease;
+  font-weight: 600 !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ready-btn:hover {
+  background-color: rgba(46, 160, 67, 0.2) !important;
+}
+
+/* Arreglar cabecera */
+.kds-card-title {
+  display: flex;
+  flex-direction: row;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+.kds-card-title h3 {
+  font-size: 1.1rem !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+.kds-card-header {
+  background: transparent !important;
+  padding: 0 !important;
+  align-items: flex-start !important;
+}
+.kds-time-bar {
+  background: transparent !important;
+  padding: 0 !important;
+  color: var(--text-secondary) !important;
+  margin-top: 0 !important;
+}
+.kds-comment-container {
+  background-color: rgba(234, 179, 8, 0.1) !important;
+  border: 1px solid rgba(234, 179, 8, 0.4) !important;
+  box-shadow: none !important;
+  padding: 0.5rem !important;
+}
+.kds-comment-text {
+  color: #fef08a !important;
+  font-size: 0.9rem !important;
 }
