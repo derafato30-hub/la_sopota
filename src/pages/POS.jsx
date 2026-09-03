@@ -1268,6 +1268,30 @@ export default function POS() {
         </div>
       )}
       
+      {unpaidWarningOrder && (
+        <div className="modal-overlay" style={{zIndex: 120}}>
+          <div className="modal-card card" style={{maxWidth: '400px', textAlign: 'center'}}>
+            <h2 style={{color: '#FF9800', marginBottom: '1rem'}}>⚠️ Pedido sin cobrar</h2>
+            <p style={{marginBottom: '1.5rem'}}>Este pedido (<strong>{unpaidWarningOrder.clientName}</strong>) no ha sido pagado. ¿Qué deseas hacer?</p>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+              <button className="btn-secondary" onClick={() => {
+                updateOrderStatus(unpaidWarningOrder.id, 'estadoEntrega', 'ENTREGADO');
+                setUnpaidWarningOrder(null);
+              }}>Dejar como Pendiente de Pago</button>
+              <button className="btn-primary" style={{backgroundColor: '#FF9800'}} onClick={() => {
+                setPaymentMethod('EFECTIVO'); 
+                setAmountReceived(''); 
+                setModalDeliveryFee(0); 
+                setIncludeDeliveryInInvoice(true); 
+                setPaymentModalOrder(unpaidWarningOrder);
+                setUnpaidWarningOrder(null);
+              }}>Cobrar Ahora</button>
+            </div>
+            <button className="btn-secondary" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setUnpaidWarningOrder(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
       {showDispatchModal && (
         <div className="modal-overlay" style={{zIndex: 110}}>
           <div className="modal-card card" style={{maxWidth: '400px'}}>
