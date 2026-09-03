@@ -260,12 +260,19 @@ export default function MenuDelDiaConfig() {
   const selectedAcompsNames = getSelectedNames(dailyConfig.acompanantesSeleccionados, catalogoAcompanantes);
 
   return (
-    <div className="daily-menu-container" style={{paddingBottom: '80px'}}>
-      <div className="header-actions">
+    <div className="daily-menu-container">
+      <div className="header-actions" style={{flexWrap: 'wrap'}}>
         <h1><Calendar size={28} style={{marginRight: '10px'}}/> Menú del Día: {todayDateStr}</h1>
-        <div style={{display: 'flex', gap: '10px'}}>
+        <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
           <button className="btn-secondary ai-btn" onClick={solicitarPropuestaIA}>
             <Sparkles size={18} /> Propuesta IA
+          </button>
+          <button className="btn-secondary" onClick={() => setIsSummaryExpanded(true)}>
+            Ver Resumen
+          </button>
+          <button className="btn-primary" onClick={handleSaveDailyMenu} style={{boxShadow: '0 4px 15px rgba(249, 115, 22, 0.4)'}}>
+            <Save size={18} style={{marginRight: '8px', verticalAlign: 'middle'}} />
+            Confirmar y Guardar
           </button>
         </div>
       </div>
@@ -526,66 +533,46 @@ export default function MenuDelDiaConfig() {
         </div>
       )}
 
-      {/* Floating Summary Expandable Drawer */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 'var(--sidebar-width)', right: 0, 
-        backgroundColor: 'var(--surface-color)', borderTop: '2px solid var(--accent-color)', 
-        boxShadow: '0 -10px 30px rgba(0,0,0,0.5)', zIndex: 50,
-        transition: 'all 0.3s cubic-bezier(0.32, 0.72, 0, 1)'
-      }}>
-        {isSummaryExpanded && (
-          <div style={{padding: '2rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', maxHeight: '40vh', overflowY: 'auto'}}>
-            <div>
-              <h4 style={{color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><CheckCircle size={16} color="var(--primary-color)"/> Sopas Seleccionadas ({sLen})</h4>
-              {selectedSopasNames.length === 0 ? <p style={{color: '#666', fontStyle: 'italic'}}>Ninguna</p> : (
-                <ul style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                  {selectedSopasNames.map((n, i) => <li key={i} style={{padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '4px', fontSize: '0.95rem'}}>{n}</li>)}
-                </ul>
-              )}
+      {/* Summary Modal */}
+      {isSummaryExpanded && (
+        <div className="modal-overlay" style={{zIndex: 100}}>
+          <div className="modal-card card" style={{maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto'}}>
+            <h2 style={{borderBottom: '2px solid var(--accent-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem'}}>Resumen del Menú Seleccionado</h2>
+            
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem'}}>
+              <div>
+                <h4 style={{color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><CheckCircle size={16} color="var(--primary-color)"/> Sopas ({sLen})</h4>
+                {selectedSopasNames.length === 0 ? <p style={{color: '#666', fontStyle: 'italic'}}>Ninguna</p> : (
+                  <ul style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                    {selectedSopasNames.map((n, i) => <li key={i} style={{padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px'}}>{n}</li>)}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <h4 style={{color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><CheckCircle size={16} color="var(--primary-color)"/> Carnes ({cLen})</h4>
+                {selectedCarnesNames.length === 0 ? <p style={{color: '#666', fontStyle: 'italic'}}>Ninguna</p> : (
+                  <ul style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                    {selectedCarnesNames.map((n, i) => <li key={i} style={{padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px'}}>{n}</li>)}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <h4 style={{color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><CheckCircle size={16} color="var(--primary-color)"/> Acompañantes ({aLen})</h4>
+                {selectedAcompsNames.length === 0 ? <p style={{color: '#666', fontStyle: 'italic'}}>Ninguno</p> : (
+                  <ul style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                    {selectedAcompsNames.map((n, i) => <li key={i} style={{padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px'}}>{n}</li>)}
+                  </ul>
+                )}
+              </div>
             </div>
-            <div>
-              <h4 style={{color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><CheckCircle size={16} color="var(--primary-color)"/> Carnes Seleccionadas ({cLen})</h4>
-              {selectedCarnesNames.length === 0 ? <p style={{color: '#666', fontStyle: 'italic'}}>Ninguna</p> : (
-                <ul style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                  {selectedCarnesNames.map((n, i) => <li key={i} style={{padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '4px', fontSize: '0.95rem'}}>{n}</li>)}
-                </ul>
-              )}
-            </div>
-            <div>
-              <h4 style={{color: 'var(--text-secondary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}><CheckCircle size={16} color="var(--primary-color)"/> Acompañantes Seleccionados ({aLen})</h4>
-              {selectedAcompsNames.length === 0 ? <p style={{color: '#666', fontStyle: 'italic'}}>Ninguno</p> : (
-                <ul style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                  {selectedAcompsNames.map((n, i) => <li key={i} style={{padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '4px', fontSize: '0.95rem'}}>{n}</li>)}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
 
-        <div style={{
-          padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-        }}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '2rem'}}>
-            <button onClick={() => setIsSummaryExpanded(!isSummaryExpanded)} className="btn-secondary" style={{display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: isSummaryExpanded ? 'rgba(255,255,255,0.1)' : 'transparent', border: '1px solid rgba(255,255,255,0.2)'}}>
-              {isSummaryExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-              {isSummaryExpanded ? 'Ocultar Resumen' : 'Ver Resumen Detallado'}
-            </button>
-            <div style={{display: 'flex', gap: '1.5rem', fontSize: '1.05rem'}}>
-              <div><strong>🍲 Sopas:</strong> <span style={{color: sLen > 0 ? 'var(--primary-color)' : 'inherit'}}>{sLen}</span></div>
-              <div><strong>🥩 Carnes:</strong> <span style={{color: cLen > 0 ? 'var(--primary-color)' : 'inherit'}}>{cLen}</span></div>
-              <div><strong>🥗 Acomps:</strong> <span style={{color: aLen >= 3 ? 'var(--primary-color)' : 'inherit'}}>{aLen}</span> {aLen > 0 && aLen < 3 && <span style={{color: '#FF5252', fontSize: '0.85rem'}}>(Faltan {3-aLen})</span>}</div>
+            <div className="form-actions" style={{marginTop: '2rem'}}>
+              <button className="btn-secondary" onClick={() => setIsSummaryExpanded(false)}>Cerrar</button>
+              <button className="btn-primary" onClick={() => { setIsSummaryExpanded(false); handleSaveDailyMenu(); }}>Confirmar y Guardar</button>
             </div>
           </div>
-          <button 
-            className="btn-primary" 
-            style={{padding: '0.75rem 2rem', fontSize: '1.1rem', boxShadow: '0 4px 15px rgba(249, 115, 22, 0.4)'}}
-            onClick={handleSaveDailyMenu}
-          >
-            <Save size={20} style={{marginRight: '8px', verticalAlign: 'middle'}} />
-            Confirmar y Guardar Menú
-          </button>
         </div>
-      </div>
+      )}
 
     </div>
   );
