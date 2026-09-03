@@ -29,6 +29,7 @@ export default function POS() {
   // Payment State
   const [paymentModalOrder, setPaymentModalOrder] = useState(null);
   const [unpaidWarningOrder, setUnpaidWarningOrder] = useState(null);
+  const [summaryOrder, setSummaryOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [paymentBank, setPaymentBank] = useState('Bac Antony');
   const [amountReceived, setAmountReceived] = useState('');
@@ -699,6 +700,7 @@ export default function POS() {
                   L. {o.total.toFixed(2)} | Pago: <strong style={{color: o.estadoPago === 'PENDIENTE' ? '#FF9800' : '#4CAF50'}}>{o.estadoPago}</strong>
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
+                  <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
                   {o.orderType.includes('ENVIO') ? (
                     <button className="btn-secondary" onClick={() => { setDispatchOrder(o); setDriverName(''); setDriverPhone(''); setPayDriverFromRegister(true); setShowDispatchModal(true); }}>Enviar en Ruta</button>
                   ) : (
@@ -709,7 +711,10 @@ export default function POS() {
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
-                  <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className="btn-secondary" style={{flex: 1, padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
+                    <button className="btn-secondary del-btn" style={{flex: 1, padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar</button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1288,6 +1293,42 @@ export default function POS() {
               }}>Cobrar Ahora</button>
             </div>
             <button className="btn-secondary" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setUnpaidWarningOrder(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {summaryOrder && (
+        <div className="modal-overlay" style={{zIndex: 130}}>
+          <div className="modal-card card" style={{maxWidth: '500px', width: '90%'}}>
+            <h2 style={{borderBottom: '2px solid var(--primary-color)', paddingBottom: '0.5rem', marginBottom: '1rem'}}>
+              Resumen: {summaryOrder.clientName}
+            </h2>
+            <div style={{maxHeight: '40vh', overflowY: 'auto', marginBottom: '1rem'}}>
+              <ul style={{listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                {summaryOrder.items.map((item, i) => (
+                  <li key={i} style={{backgroundColor: 'rgba(255,255,255,0.05)', padding: '0.75rem', borderRadius: '4px'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                      <strong>{item.qty}x {item.name}</strong>
+                      <span>L. {(item.qty * item.price).toFixed(2)}</span>
+                    </div>
+                    {item.variation && <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>{item.variation}</div>}
+                    {item.notes && <div style={{fontSize: '0.85rem', color: '#FF9800', fontStyle: 'italic'}}>Nota: {item.notes}</div>}
+                  </li>
+                ))}
+              </ul>
+              <div style={{textAlign: 'right', marginTop: '1rem', fontSize: '1.2rem'}}>
+                <strong>Total: L. {summaryOrder.total.toFixed(2)}</strong>
+              </div>
+            </div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+               {summaryOrder.orderType.includes('ENVIO') ? (
+                  <button className="btn-primary" onClick={() => { setSummaryOrder(null); setDispatchOrder(summaryOrder); setDriverName(''); setDriverPhone(''); setPayDriverFromRegister(true); setShowDispatchModal(true); }}>Enviar en Ruta</button>
+               ) : (
+                  <button className="btn-primary" onClick={() => { setSummaryOrder(null); handleMarkDelivered(summaryOrder); }}>Entregar en Local</button>
+               )}
+               <button className="btn-secondary" onClick={() => { setSummaryOrder(null); handleEditOrder(summaryOrder); }}>✏️ Editar Orden</button>
+               <button className="btn-secondary" onClick={() => setSummaryOrder(null)}>Cerrar</button>
+            </div>
           </div>
         </div>
       )}
