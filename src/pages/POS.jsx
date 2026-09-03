@@ -642,10 +642,13 @@ export default function POS() {
                 <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
                   L. {o.total.toFixed(2)} - {o.items?.length || 0} items
                 </div>
-                <div style={{display: 'flex', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" style={{flex: 1, padding: '0.4rem'}} onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'PENDIENTE')}>Mandar a Cocina</button>
-                  <button className="btn-secondary" style={{padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
-                  <button className="icon-btn del-btn" style={{padding: '0.4rem', backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: '4px'}} onClick={() => handleCancelOrder(o)} title="Cancelar Orden">🗑️</button>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
+                  <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
+                  <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'PENDIENTE')}>Mandar a Cocina</button>
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className="btn-secondary" style={{flex: 1, padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
+                    <button className="btn-secondary del-btn" style={{flex: 1, padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar</button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -670,15 +673,18 @@ export default function POS() {
                 <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
                   L. {o.total.toFixed(2)} - {o.items?.length || 0} items
                 </div>
-                <div style={{display: 'flex', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" style={{flex: 1, padding: '0.4rem'}} onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
-                  <button className="btn-secondary" style={{padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
+                  <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
+                  <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white', padding: '0.4rem'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
-                  <button className="icon-btn del-btn" style={{padding: '0.4rem', backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: '4px'}} onClick={() => handleCancelOrder(o)} title="Cancelar Orden">🗑️</button>
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className="btn-secondary" style={{flex: 1, padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
+                    <button className="btn-secondary del-btn" style={{flex: 1, padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar</button>
+                  </div>
                 </div>
               </div>
             ))}
