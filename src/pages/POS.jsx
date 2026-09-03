@@ -132,10 +132,10 @@ export default function POS() {
 
   const handleMarkDelivered = (order) => {
     if (order.estadoPago === 'PENDIENTE') {
-      toast.error("No puedes marcar como entregado un pedido que no ha sido pagado.\n\nPor favor, cóbralo primero.");
-      return;
+      setUnpaidWarningOrder(order);
+    } else {
+      updateOrderStatus(order.id, 'estadoEntrega', 'ENTREGADO');
     }
-    updateOrderStatus(order.id, 'estadoEntrega', 'ENTREGADO');
   };
 
   const handleEditOrder = (order) => {
@@ -717,39 +717,38 @@ export default function POS() {
           </div>
         </div>
 
-        {/* COLUMNA 4: En Ruta */}
+        {/* COLUMNA 4: Pendientes de Pago */}
         <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
-          <h3 style={{borderBottom: '2px solid #3B82F6', paddingBottom: '0.5rem', marginBottom: '1rem'}}>🛵 En Ruta</h3>
+          <h3 style={{borderBottom: '2px solid #FF9800', paddingBottom: '0.5rem', marginBottom: '1rem'}}>⏳ Pendientes de Pago</h3>
           <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-            {activeOrders.filter(o => o.estadoCocina === 'LISTO' && o.estadoEntrega === 'EN_RUTA').map(o => (
-              <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #3B82F6'}}>
+            {activeOrders.filter(o => o.estadoPago === 'PENDIENTE' && o.estadoEntrega === 'ENTREGADO').map(o => (
+              <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #FF9800'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
                   <strong>{o.clientName}</strong>
-                  <span className="badge" style={{backgroundColor: '#3B82F6', color: 'white'}}>{o.orderType}</span>
+                  <span className="badge" style={{backgroundColor: '#FF9800', color: 'white'}}>{o.orderType}</span>
                 </div>
+                {o.driverName && (
+                  <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem'}}>🛵 {o.driverName}</div>
+                )}
                 <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
-                  L. {o.total.toFixed(2)} | Pago: <strong style={{color: o.estadoPago === 'PENDIENTE' ? '#FF9800' : '#4CAF50'}}>{o.estadoPago}</strong>
+                  L. {o.total.toFixed(2)} | Pago: <strong style={{color: '#FF9800'}}>{o.estadoPago}</strong>
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" onClick={() => handleMarkDelivered(o)}>Confirmar Entrega</button>
-                  {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar (Repartidor)</button>
-                  ) : (
-                    <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
-                  )}
+                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
+                  <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
                 </div>
               </div>
             ))}
-            {activeOrders.filter(o => o.estadoCocina === 'LISTO' && o.estadoEntrega === 'EN_RUTA').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>No hay envíos en ruta.</p>}
+            {activeOrders.filter(o => o.estadoPago === 'PENDIENTE' && o.estadoEntrega === 'ENTREGADO').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>No hay órdenes pendientes de pago.</p>}
           </div>
         </div>
 
         {/* COLUMNA 5: Entregados Hoy */}
         <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', opacity: 0.8}}>
-          <h3 style={{borderBottom: '2px solid #4CAF50', paddingBottom: '0.5rem', marginBottom: '1rem'}}>📦 Entregados Hoy</h3>
+          <h3 style={{borderBottom: '2px solid #4CAF50', paddingBottom: '0.5rem', marginBottom: '1rem'}}>✅ Finalizados Hoy</h3>
           <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-            {activeOrders.filter(o => o.estadoEntrega === 'ENTREGADO').map(o => (
+            {activeOrders.filter(o => o.estadoEntrega === 'ENTREGADO' && (o.estadoPago === 'PAGADO' || o.estadoPago === 'CREDITO')).map(o => (
               <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #4CAF50', opacity: 0.7}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
                   <strong style={{textDecoration: 'line-through'}}>{o.clientName}</strong>
@@ -1317,8 +1316,13 @@ export default function POS() {
                    await logAuditAction('NUEVO_GASTO', 'POS', `L. ${dispatchOrder.deliveryFee} pagados a repartidor por envío.`, currentUser);
                 }
                 
-                await logAuditAction('ENVIAR_RUTA', 'POS', `Orden enviada en ruta. Repartidor: ${driverName || 'No especificado'}`, currentUser);
+                await logAuditAction('DESPACHAR_ORDEN', 'POS', `Orden despachada. Repartidor: ${driverName || 'No especificado'}`, currentUser);
                 setShowDispatchModal(false);
+                if (dispatchOrder.estadoPago === 'PENDIENTE') {
+                  setUnpaidWarningOrder(dispatchOrder);
+                } else {
+                  loadOrders();
+                }
                 setDispatchOrder(null);
                 loadOrders();
               }}>Confirmar Despacho</button>
