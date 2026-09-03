@@ -72,6 +72,8 @@ export default function POS() {
   const [showVariationModal, setShowVariationModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedVariation, setSelectedVariation] = useState(null);
+  const [variationQtys, setVariationQtys] = useState({});
+  const [modalGlobalQty, setModalGlobalQty] = useState(1);
   const [selectedSauces, setSelectedSauces] = useState([]);
 
   // States for Cart Item editing (Extras & Comments)
@@ -339,6 +341,8 @@ export default function POS() {
     if (item.hasVariations || item.type === 'alitas') {
       setSelectedItem(item);
       setSelectedVariation(item.variations && item.variations.length > 0 ? item.variations[0] : null);
+      setVariationQtys({});
+      setModalGlobalQty(1);
       setSelectedSauces([]);
       setShowVariationModal(true);
     } else {
@@ -346,7 +350,7 @@ export default function POS() {
     }
   };
 
-  const addToCartDirect = (item, variation = null, sauces = []) => {
+  const addToCartDirect = (item, variation = null, sauces = [], qty = 1) => {
     let finalName = item.name;
     let finalPrice = item.price;
 
@@ -361,31 +365,40 @@ export default function POS() {
 
     const cartItem = {
       ...item,
-      cartId: Date.now().toString(),
+      cartId: Date.now().toString() + Math.random().toString().substring(2, 6),
       name: finalName,
       price: finalPrice,
-      qty: 1,
+      qty: qty,
       comment: '',
       extras: sauces
     };
     
-    // Check if we can group it
-    const existing = cart.find(c => c.id === item.id && c.name === finalName && !c.comment && (!c.extras || c.extras.length === 0));
-    if (existing) {
-       setCart(cart.map(c => c.cartId === existing.cartId ? {...c, qty: c.qty + 1} : c));
-    } else {
-       setCart([...cart, cartItem]);
-    }
+    setCart(prev => {
+      const existing = prev.find(c => c.id === item.id && c.name === finalName && !c.comment && (!c.extras || c.extras.length === 0));
+      if (existing) {
+         return prev.map(c => c.cartId === existing.cartId ? {...c, qty: c.qty + qty} : c);
+      } else {
+         return [...prev, cartItem];
+      }
+    });
   };
 
   const handleConfirmVariation = () => {
-    if (selectedItem.hasVariations && !selectedVariation) {
-      return toast.error("Selecciona una variación");
+    if (selectedItem.hasVariations) {
+      const hasAnyQty = Object.values(variationQtys).some(q => q > 0);
+      if (!hasAnyQty) {
+        return toast.error("Debes agregar al menos una variación");
+      }
+      
+      selectedItem.variations.forEach(v => {
+        const qty = variationQtys[v.id] || 0;
+        if (qty > 0) {
+           addToCartDirect(selectedItem, v, selectedSauces, qty);
+        }
+      });
+    } else {
+      addToCartDirect(selectedItem, null, selectedSauces, modalGlobalQty);
     }
-    if (selectedItem.type === 'alitas' && selectedSauces.length === 0) {
-      // Optional constraint, maybe they want plain wings
-    }
-    addToCartDirect(selectedItem, selectedVariation, selectedSauces);
     setShowVariationModal(false);
   };
 
@@ -966,20 +979,35 @@ export default function POS() {
             
             {selectedItem.hasVariations && (
               <div style={{marginTop: '1rem'}}>
-                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Selecciona Tamaño/Variación:</h3>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Añadir Variaciones (Cantidades):</h3>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                  {selectedItem.variations.map(v => (
-                    <label key={v.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', cursor: 'pointer'}}>
-                      <input 
-                        type="radio" 
-                        name="variation"
-                        checked={selectedVariation?.id === v.id}
-                        onChange={() => setSelectedVariation(v)}
-                      />
-                      <span style={{flex: 1}}>{v.name}</span>
-                      <strong style={{color: 'var(--accent-color)'}}>L. {v.price}</strong>
-                    </label>
-                  ))}
+                  {selectedItem.variations.map(v => {
+                    const qty = variationQtys[v.id] || 0;
+                    return (
+                      <div key={v.id} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: qty > 0 ? '1px solid var(--accent-color)' : '1px solid transparent'}}>
+                        <div style={{display: 'flex', flexDirection: 'column'}}>
+                          <span style={{fontSize: '1.1rem'}}>{v.name}</span>
+                          <strong style={{color: 'var(--accent-color)', fontSize: '1.1rem'}}>L. {v.price}</strong>
+                        </div>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                           <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.2rem'}} onClick={() => setVariationQtys({...variationQtys, [v.id]: Math.max(0, qty - 1)})}>-</button>
+                           <span style={{fontWeight: 'bold', fontSize: '1.4rem', minWidth: '30px', textAlign: 'center'}}>{qty}</span>
+                           <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.2rem'}} onClick={() => setVariationQtys({...variationQtys, [v.id]: qty + 1})}>+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {!selectedItem.hasVariations && (
+              <div style={{marginTop: '1rem'}}>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Cantidad:</h3>
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(Math.max(1, modalGlobalQty - 1))}>-</button>
+                  <span style={{fontWeight: 'bold', fontSize: '1.5rem', minWidth: '40px', textAlign: 'center'}}>{modalGlobalQty}</span>
+                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(modalGlobalQty + 1)}>+</button>
                 </div>
               </div>
             )}
