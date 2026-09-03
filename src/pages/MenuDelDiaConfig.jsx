@@ -247,6 +247,14 @@ export default function MenuDelDiaConfig() {
   const aLen = dailyConfig.acompanantesSeleccionados?.length || 0;
   const sLen = dailyConfig.sopasSeleccionadas?.length || 0;
 
+  const getSelectedNames = (ids, catalog) => {
+    if (!ids) return [];
+    return ids.map(id => {
+      const item = catalog.find(c => c.id === id);
+      return item ? item.name : 'Desconocido';
+    });
+  };
+
   const selectedSopasNames = getSelectedNames(dailyConfig.sopasSeleccionadas, catalogoSopas);
   const selectedCarnesNames = getSelectedNames(dailyConfig.carnesSeleccionadas, catalogoCarnes);
   const selectedAcompsNames = getSelectedNames(dailyConfig.acompanantesSeleccionados, catalogoAcompanantes);
