@@ -1327,10 +1327,18 @@ export default function POS() {
               </div>
             </div>
             <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
-               {summaryOrder.orderType.includes('ENVIO') ? (
-                  <button className="btn-primary" onClick={() => { setSummaryOrder(null); setDispatchOrder(summaryOrder); setDriverName(''); setDriverPhone(''); setPayDriverFromRegister(true); setShowDispatchModal(true); }}>Enviar en Ruta</button>
-               ) : (
-                  <button className="btn-primary" onClick={() => { setSummaryOrder(null); handleMarkDelivered(summaryOrder); }}>Entregar en Local</button>
+               {summaryOrder.estadoCocina === 'BORRADOR' && (
+                  <button className="btn-primary" onClick={() => { setSummaryOrder(null); updateOrderStatus(summaryOrder.id, 'estadoCocina', 'PENDIENTE'); }}>Mandar a Cocina</button>
+               )}
+               {summaryOrder.estadoCocina === 'PENDIENTE' && (
+                  <button className="btn-primary" onClick={() => { setSummaryOrder(null); updateOrderStatus(summaryOrder.id, 'estadoCocina', 'LISTO'); }}>Marcar Listo</button>
+               )}
+               {summaryOrder.estadoCocina === 'LISTO' && (
+                 summaryOrder.orderType.includes('ENVIO') ? (
+                    <button className="btn-primary" onClick={() => { setSummaryOrder(null); setDispatchOrder(summaryOrder); setDriverName(''); setDriverPhone(''); setPayDriverFromRegister(true); setShowDispatchModal(true); }}>Enviar en Ruta</button>
+                 ) : (
+                    <button className="btn-primary" onClick={() => { setSummaryOrder(null); handleMarkDelivered(summaryOrder); }}>Entregar en Local</button>
+                 )
                )}
                <button className="btn-secondary" onClick={() => { setSummaryOrder(null); handleEditOrder(summaryOrder); }}>✏️ Editar Orden</button>
                <button className="btn-secondary" onClick={() => setSummaryOrder(null)}>Cerrar</button>
