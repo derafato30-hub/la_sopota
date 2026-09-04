@@ -387,7 +387,23 @@ export default function POS() {
   };
 
   const handleConfirmVariation = () => {
-    if (selectedItem.hasVariations) {
+    if (selectedItem.type === 'alitas') {
+      if (!selectedVariation) return toast.error("Debes seleccionar un tamaño de alitas");
+      if (modalGlobalQty < 1) return toast.error("La cantidad debe ser al menos 1");
+      
+      let maxSauces = 1;
+      const name = selectedVariation.name || '';
+      if (name.includes('6')) maxSauces = 1;
+      else if (name.includes('8') || name.includes('12')) maxSauces = 2;
+      else if (name.includes('18')) maxSauces = 3;
+      else if (name.includes('24')) maxSauces = 4;
+
+      if (selectedSauces.length === 0) {
+        return toast.error("Debes seleccionar al menos una salsa para las alitas");
+      }
+
+      addToCartDirect(selectedItem, selectedVariation, selectedSauces, modalGlobalQty);
+    } else if (selectedItem.hasVariations) {
       const hasAnyQty = Object.values(variationQtys).some(q => q > 0);
       if (!hasAnyQty) {
         return toast.error("Debes agregar al menos una variación");
@@ -409,6 +425,21 @@ export default function POS() {
     if (selectedSauces.find(s => s.id === salsa.id)) {
       setSelectedSauces(selectedSauces.filter(s => s.id !== salsa.id));
     } else {
+      let maxSauces = 1;
+      if (selectedItem?.type === 'alitas') {
+        const name = selectedVariation?.name || '';
+        if (name.includes('6')) maxSauces = 1;
+        else if (name.includes('8') || name.includes('12')) maxSauces = 2;
+        else if (name.includes('18')) maxSauces = 3;
+        else if (name.includes('24')) maxSauces = 4;
+      } else {
+        maxSauces = 99; // no limit for other items if any
+      }
+
+      if (selectedSauces.length >= maxSauces) {
+        toast.error(`Solo puedes elegir un máximo de ${maxSauces} salsa${maxSauces === 1 ? '' : 's'} para este tamaño.`);
+        return;
+      }
       setSelectedSauces([...selectedSauces, salsa]);
     }
   };
@@ -1002,11 +1033,12 @@ export default function POS() {
       )}
 
       {showVariationModal && selectedItem && (
-        <div className="modal-overlay">
-          <div className="modal-card card" style={{maxWidth: '500px'}}>
+        <div className="modal-overlay" style={{padding: '1rem'}}>
+          <div className="modal-card card" style={{maxWidth: '500px', maxHeight: '95vh', overflowY: 'auto', display: 'flex', flexDirection: 'column'}}>
             <h2>Configurar: {selectedItem.name}</h2>
+            <div style={{overflowY: 'auto', flex: 1, paddingRight: '0.5rem', marginTop: '1rem'}}>
             
-            {selectedItem.hasVariations && (
+            {selectedItem.hasVariations && selectedItem.type !== 'alitas' && (
               <div style={{marginTop: '1rem'}}>
                 <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Añadir Variaciones (Cantidades):</h3>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
@@ -1029,21 +1061,41 @@ export default function POS() {
                 </div>
               </div>
             )}
-            
-            {!selectedItem.hasVariations && (
+
+            {selectedItem.hasVariations && selectedItem.type === 'alitas' && (
               <div style={{marginTop: '1rem'}}>
-                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Cantidad:</h3>
-                <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(Math.max(1, modalGlobalQty - 1))}>-</button>
-                  <span style={{fontWeight: 'bold', fontSize: '1.5rem', minWidth: '40px', textAlign: 'center'}}>{modalGlobalQty}</span>
-                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(modalGlobalQty + 1)}>+</button>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>1. Selecciona el Tamaño:</h3>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                  {selectedItem.variations.map(v => {
+                    const isSelected = selectedVariation?.id === v.id;
+                    return (
+                      <div key={v.id} onClick={() => { setSelectedVariation(v); setSelectedSauces([]); }} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: isSelected ? '2px solid var(--primary-color)' : '1px solid transparent', cursor: 'pointer'}}>
+                        <div style={{display: 'flex', flexDirection: 'column'}}>
+                          <span style={{fontSize: '1.1rem'}}>{v.name}</span>
+                          <strong style={{color: 'var(--primary-color)', fontSize: '1.1rem'}}>L. {v.price}</strong>
+                        </div>
+                        {isSelected && <div style={{color: 'var(--primary-color)', fontSize: '1.5rem', fontWeight: 'bold'}}>✓</div>}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
-
+            
             {selectedItem.type === 'alitas' && (
               <div style={{marginTop: '1.5rem'}}>
-                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Selecciona Salsas (Bañadas):</h3>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>
+                  2. Salsas (Max {
+                    (() => {
+                      const n = selectedVariation?.name || '';
+                      if (n.includes('6')) return 1;
+                      if (n.includes('8') || n.includes('12')) return 2;
+                      if (n.includes('18')) return 3;
+                      if (n.includes('24')) return 4;
+                      return 1;
+                    })()
+                  }):
+                </h3>
                 <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem'}}>
                   {salsasDisponibles.map(s => (
                     <label key={s.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', cursor: 'pointer'}}>
@@ -1059,8 +1111,20 @@ export default function POS() {
                 </div>
               </div>
             )}
+            
+            {(!selectedItem.hasVariations || selectedItem.type === 'alitas') && (
+              <div style={{marginTop: '1.5rem'}}>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>{selectedItem.type === 'alitas' ? '3. Cantidad de Órdenes:' : 'Cantidad:'}</h3>
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(Math.max(1, modalGlobalQty - 1))}>-</button>
+                  <span style={{fontWeight: 'bold', fontSize: '1.5rem', minWidth: '40px', textAlign: 'center'}}>{modalGlobalQty}</span>
+                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(modalGlobalQty + 1)}>+</button>
+                </div>
+              </div>
+            )}
 
-            <div className="form-actions" style={{marginTop: '2rem'}}>
+            </div>
+            <div className="form-actions" style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)'}}>
               <button className="btn-secondary" onClick={() => setShowVariationModal(false)}>Cancelar</button>
               <button className="btn-primary" onClick={handleConfirmVariation}>Confirmar y Añadir</button>
             </div>
