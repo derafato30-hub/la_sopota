@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
 import { printInvoice } from '../utils/printService';
 import { 
-  ShoppingCart, Send, UserPlus, FileEdit } from 'lucide-react';
+  ShoppingCart, Send, UserPlus, FileEdit, Search } from 'lucide-react';
 import './POS.css';
 
 export default function POS() {
@@ -51,6 +51,7 @@ export default function POS() {
   const [dmSelectedSides, setDmSelectedSides] = useState([]);
   const [showSopaModal, setShowSopaModal] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('Todos');
+  const [menuSearchTerm, setMenuSearchTerm] = useState('');
 
   // Order Scheduling
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -840,6 +841,19 @@ export default function POS() {
             </div>
           )}
 
+          <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem', width: '100%'}}>
+            <div style={{flex: 1, position: 'relative'}}>
+              <Search size={18} style={{position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)'}} />
+              <input 
+                type="text" 
+                placeholder="Buscar platillo por nombre..." 
+                value={menuSearchTerm}
+                onChange={(e) => setMenuSearchTerm(e.target.value)}
+                style={{width: '100%', padding: '0.6rem 1rem 0.6rem 2.2rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)'}}
+              />
+            </div>
+          </div>
+
           <div style={{display: 'flex', gap: '0.5rem', overflowX: 'auto', width: '100%', paddingBottom: '0.5rem'}}>
             {['Todos', 'platillo', 'pollo_frito', 'tacos', 'alitas', 'combo', 'bebida', 'extra'].map(cat => (
               <button 
@@ -855,7 +869,11 @@ export default function POS() {
         </div>
 
         <div className="pos-grid">
-          {items.filter(item => activeCategoryFilter === 'Todos' || item.type === activeCategoryFilter).map(item => {
+          {items.filter(item => {
+            const matchesCategory = activeCategoryFilter === 'Todos' || item.type === activeCategoryFilter;
+            const matchesSearch = item.name.toLowerCase().includes(menuSearchTerm.toLowerCase());
+            return matchesCategory && matchesSearch;
+          }).map(item => {
             let stockDisplay = null;
             if (item.type === 'sopa' || item.name.toLowerCase().includes('sopa')) {
                if (dailyMenuConfig && dailyMenuConfig.sopasInventario && dailyMenuConfig.sopasInventario[item.id] !== undefined) {
