@@ -103,7 +103,7 @@ export default function Gastos() {
       const o = doc.data();
       if (o.estadoCocina === 'CANCELADA' || o.estadoPago === 'CANCELADO' || o.estado === 'CANCELADA') return;
 
-      if (o.estadoCocina !== 'ENTREGADO' || o.estadoPago === 'PENDIENTE') {
+      if (o.estadoEntrega !== 'ENTREGADO' || o.estadoPago === 'PENDIENTE') {
         pending = true;
       }
 
