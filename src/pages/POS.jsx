@@ -52,7 +52,7 @@ export default function POS() {
   const [showSopaModal, setShowSopaModal] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('Todos');
   const [menuSearchTerm, setMenuSearchTerm] = useState('');
-  const [miniCart, setMiniCart] = useState([]);
+  const [alitasStep, setAlitasStep] = useState(1);
 
   // Order Scheduling
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -344,11 +344,11 @@ export default function POS() {
   const handleItemClick = (item) => {
     if (item.hasVariations || item.type === 'alitas') {
       setSelectedItem(item);
-      setSelectedVariation(item.variations && item.variations.length > 0 ? item.variations[0] : null);
+      setSelectedVariation(item.type === 'alitas' ? null : (item.variations && item.variations.length > 0 ? item.variations[0] : null));
       setVariationQtys({});
       setModalGlobalQty(1);
       setSelectedSauces([]);
-      setMiniCart([]);
+      setAlitasStep(1);
       setShowVariationModal(true);
     } else {
       addToCartDirect(item);
@@ -388,32 +388,25 @@ export default function POS() {
     });
   };
 
-  const handleConfirmVariation = () => {
+  const handleConfirmVariation = (keepOpen = false) => {
     if (selectedItem.type === 'alitas') {
       if (!selectedVariation) return toast.error("Debes seleccionar un tamaño de alitas");
       if (modalGlobalQty < 1) return toast.error("La cantidad debe ser al menos 1");
       
-      let maxSauces = 1;
-      const name = selectedVariation.name || '';
-      if (name.includes('6')) maxSauces = 1;
-      else if (name.includes('8') || name.includes('12')) maxSauces = 2;
-      else if (name.includes('18')) maxSauces = 3;
-      else if (name.includes('24')) maxSauces = 4;
-
       if (selectedSauces.length === 0) {
         return toast.error("Debes seleccionar al menos una salsa para las alitas");
       }
 
-      setMiniCart(prev => [...prev, {
-        id: Date.now().toString(),
-        variation: selectedVariation,
-        sauces: selectedSauces,
-        qty: modalGlobalQty
-      }]);
+      addToCartDirect(selectedItem, selectedVariation, selectedSauces, modalGlobalQty);
+      toast.success(`${selectedVariation.name} agregadas al ticket`);
       
-      toast.success("Agregado al mini-ticket");
-      setSelectedSauces([]);
-      setModalGlobalQty(1);
+      if (keepOpen === true) {
+        setAlitasStep(1);
+        setSelectedVariation(null);
+        setSelectedSauces([]);
+        setModalGlobalQty(1);
+        return; // stay in modal
+      }
     } else if (selectedItem.hasVariations) {
       const hasAnyQty = Object.values(variationQtys).some(q => q > 0);
       if (!hasAnyQty) {
@@ -428,19 +421,6 @@ export default function POS() {
       });
     } else {
       addToCartDirect(selectedItem, null, selectedSauces, modalGlobalQty);
-      setShowVariationModal(false);
-    }
-  };
-
-  const handleFinishVariationModal = () => {
-    if (selectedItem.type === 'alitas') {
-      if (miniCart.length === 0) {
-        return setShowVariationModal(false);
-      }
-      miniCart.forEach(item => {
-        addToCartDirect(selectedItem, item.variation, item.sauces, item.qty);
-      });
-      setMiniCart([]);
     }
     setShowVariationModal(false);
   };
@@ -1086,30 +1066,32 @@ export default function POS() {
               </div>
             )}
 
-            {selectedItem.hasVariations && selectedItem.type === 'alitas' && (
+            {selectedItem.hasVariations && selectedItem.type === 'alitas' && alitasStep === 1 && (
               <div style={{marginTop: '1rem'}}>
-                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>1. Selecciona el Tamaño:</h3>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Selecciona el Tamaño:</h3>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                  {selectedItem.variations.map(v => {
-                    const isSelected = selectedVariation?.id === v.id;
-                    return (
-                      <div key={v.id} onClick={() => { setSelectedVariation(v); setSelectedSauces([]); }} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: isSelected ? '2px solid var(--primary-color)' : '1px solid transparent', cursor: 'pointer'}}>
-                        <div style={{display: 'flex', flexDirection: 'column'}}>
-                          <span style={{fontSize: '1.1rem'}}>{v.name}</span>
-                          <strong style={{color: 'var(--primary-color)', fontSize: '1.1rem'}}>L. {v.price}</strong>
-                        </div>
-                        {isSelected && <div style={{color: 'var(--primary-color)', fontSize: '1.5rem', fontWeight: 'bold'}}>✓</div>}
+                  {selectedItem.variations.map(v => (
+                    <div key={v.id} onClick={() => { setSelectedVariation(v); setSelectedSauces([]); setAlitasStep(2); }} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid transparent', cursor: 'pointer'}}>
+                      <div style={{display: 'flex', flexDirection: 'column'}}>
+                        <span style={{fontSize: '1.1rem'}}>{v.name}</span>
+                        <strong style={{color: 'var(--primary-color)', fontSize: '1.1rem'}}>L. {v.price}</strong>
                       </div>
-                    );
-                  })}
+                      <div style={{color: 'var(--text-secondary)'}}>➔</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
             
-            {selectedItem.type === 'alitas' && (
-              <div style={{marginTop: '1.5rem'}}>
+            {selectedItem.type === 'alitas' && alitasStep === 2 && (
+              <div style={{marginTop: '1rem'}}>
+                <button className="btn-secondary" style={{marginBottom: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.9rem'}} onClick={() => setAlitasStep(1)}>← Volver a Tamaños</button>
+                <div style={{padding: '0.75rem', backgroundColor: 'rgba(var(--primary-color-rgb), 0.1)', borderRadius: '8px', border: '1px solid var(--primary-color)', marginBottom: '1rem'}}>
+                  <strong style={{color: 'var(--primary-color)', fontSize: '1.1rem'}}>{selectedVariation?.name}</strong>
+                </div>
+
                 <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>
-                  2. Salsas (Max {
+                  Elige Salsas (Max {
                     (() => {
                       const n = selectedVariation?.name || '';
                       if (n.includes('6')) return 1;
@@ -1136,9 +1118,9 @@ export default function POS() {
               </div>
             )}
             
-            {(!selectedItem.hasVariations || selectedItem.type === 'alitas') && (
+            {(!selectedItem.hasVariations || (selectedItem.type === 'alitas' && alitasStep === 2)) && (
               <div style={{marginTop: '1.5rem'}}>
-                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>{selectedItem.type === 'alitas' ? '3. Cantidad de Órdenes:' : 'Cantidad:'}</h3>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>{selectedItem.type === 'alitas' ? 'Cantidad de Órdenes:' : 'Cantidad:'}</h3>
                 <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
                   <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(Math.max(1, modalGlobalQty - 1))}>-</button>
                   <span style={{fontWeight: 'bold', fontSize: '1.5rem', minWidth: '40px', textAlign: 'center'}}>{modalGlobalQty}</span>
@@ -1147,32 +1129,17 @@ export default function POS() {
               </div>
             )}
 
-            {selectedItem.type === 'alitas' && miniCart.length > 0 && (
-              <div style={{marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px'}}>
-                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--primary-color)'}}>Mini-Ticket (Borrador):</h3>
-                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                  {miniCart.map(mc => (
-                    <div key={mc.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem'}}>
-                      <div>
-                        <strong>{mc.qty}x</strong> {mc.variation?.name} 
-                        <br/>
-                        <span style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Salsas: {mc.sauces.map(s => s.name).join(', ')}</span>
-                      </div>
-                      <button className="icon-btn del-btn" style={{padding: '0.2rem 0.5rem'}} onClick={() => setMiniCart(miniCart.filter(x => x.id !== mc.id))}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             </div>
             {selectedItem.type === 'alitas' ? (
               <div style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
-                <button className="btn-secondary" style={{width: '100%'}} onClick={handleConfirmVariation}>Añadir al Mini-Ticket ↓</button>
-                <div className="form-actions" style={{marginTop: '0.5rem'}}>
+                {alitasStep === 1 ? (
                   <button className="btn-secondary" onClick={() => setShowVariationModal(false)}>Cancelar</button>
-                  <button className="btn-primary" onClick={handleFinishVariationModal}>Terminar y Agregar Todo al Ticket ➔</button>
-                </div>
+                ) : (
+                  <>
+                    <button className="btn-primary" onClick={() => handleConfirmVariation(false)}>Añadir al Ticket y Terminar</button>
+                    <button className="btn-secondary" onClick={() => handleConfirmVariation(true)}>Añadir y Pedir Más Alitas</button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="form-actions" style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)'}}>
