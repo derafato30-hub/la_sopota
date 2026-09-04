@@ -52,6 +52,7 @@ export default function POS() {
   const [showSopaModal, setShowSopaModal] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState('Todos');
   const [menuSearchTerm, setMenuSearchTerm] = useState('');
+  const [miniCart, setMiniCart] = useState([]);
 
   // Order Scheduling
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -347,6 +348,7 @@ export default function POS() {
       setVariationQtys({});
       setModalGlobalQty(1);
       setSelectedSauces([]);
+      setMiniCart([]);
       setShowVariationModal(true);
     } else {
       addToCartDirect(item);
@@ -402,7 +404,16 @@ export default function POS() {
         return toast.error("Debes seleccionar al menos una salsa para las alitas");
       }
 
-      addToCartDirect(selectedItem, selectedVariation, selectedSauces, modalGlobalQty);
+      setMiniCart(prev => [...prev, {
+        id: Date.now().toString(),
+        variation: selectedVariation,
+        sauces: selectedSauces,
+        qty: modalGlobalQty
+      }]);
+      
+      toast.success("Agregado al mini-ticket");
+      setSelectedSauces([]);
+      setModalGlobalQty(1);
     } else if (selectedItem.hasVariations) {
       const hasAnyQty = Object.values(variationQtys).some(q => q > 0);
       if (!hasAnyQty) {
@@ -417,6 +428,19 @@ export default function POS() {
       });
     } else {
       addToCartDirect(selectedItem, null, selectedSauces, modalGlobalQty);
+      setShowVariationModal(false);
+    }
+  };
+
+  const handleFinishVariationModal = () => {
+    if (selectedItem.type === 'alitas') {
+      if (miniCart.length === 0) {
+        return setShowVariationModal(false);
+      }
+      miniCart.forEach(item => {
+        addToCartDirect(selectedItem, item.variation, item.sauces, item.qty);
+      });
+      setMiniCart([]);
     }
     setShowVariationModal(false);
   };
@@ -1123,11 +1147,39 @@ export default function POS() {
               </div>
             )}
 
+            {selectedItem.type === 'alitas' && miniCart.length > 0 && (
+              <div style={{marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px'}}>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--primary-color)'}}>Mini-Ticket (Borrador):</h3>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                  {miniCart.map(mc => (
+                    <div key={mc.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem'}}>
+                      <div>
+                        <strong>{mc.qty}x</strong> {mc.variation?.name} 
+                        <br/>
+                        <span style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Salsas: {mc.sauces.map(s => s.name).join(', ')}</span>
+                      </div>
+                      <button className="icon-btn del-btn" style={{padding: '0.2rem 0.5rem'}} onClick={() => setMiniCart(miniCart.filter(x => x.id !== mc.id))}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             </div>
-            <div className="form-actions" style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)'}}>
-              <button className="btn-secondary" onClick={() => setShowVariationModal(false)}>Cancelar</button>
-              <button className="btn-primary" onClick={handleConfirmVariation}>Confirmar y Añadir</button>
-            </div>
+            {selectedItem.type === 'alitas' ? (
+              <div style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                <button className="btn-secondary" style={{width: '100%'}} onClick={handleConfirmVariation}>Añadir al Mini-Ticket ↓</button>
+                <div className="form-actions" style={{marginTop: '0.5rem'}}>
+                  <button className="btn-secondary" onClick={() => setShowVariationModal(false)}>Cancelar</button>
+                  <button className="btn-primary" onClick={handleFinishVariationModal}>Terminar y Agregar Todo al Ticket ➔</button>
+                </div>
+              </div>
+            ) : (
+              <div className="form-actions" style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)'}}>
+                <button className="btn-secondary" onClick={() => setShowVariationModal(false)}>Cancelar</button>
+                <button className="btn-primary" onClick={handleConfirmVariation}>Confirmar y Añadir</button>
+              </div>
+            )}
           </div>
         </div>
       )}
