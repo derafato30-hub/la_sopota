@@ -12,6 +12,7 @@ export default function Gastos() {
   const [gastos, setGastos] = useState([]);
   const [cierres, setCierres] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasPendingOrders, setHasPendingOrders] = useState(false);
 
   // Formularios
   const [showGastoModal, setShowGastoModal] = useState(false);
@@ -19,6 +20,7 @@ export default function Gastos() {
 
   const [showCierreModal, setShowCierreModal] = useState(false);
   const [cierreData, setCierreData] = useState({ actualCash: 0, notes: '' });
+  const [selectedCierre, setSelectedCierre] = useState(null);
 
   const [showAbonosDetalleModal, setShowAbonosDetalleModal] = useState(false);
 
@@ -95,9 +97,15 @@ export default function Gastos() {
       abonosList: []
     };
 
+    let pending = false;
+
     snapOrders.forEach(doc => {
       const o = doc.data();
       if (o.estadoCocina === 'CANCELADA' || o.estadoPago === 'CANCELADO' || o.estado === 'CANCELADA') return;
+
+      if (o.estadoCocina !== 'ENTREGADO' || o.estadoPago === 'PENDIENTE') {
+        pending = true;
+      }
 
       const food = o.foodTotal !== undefined ? o.foodTotal : (o.total - (o.deliveryFee || 0));
       stats.ventaTotal += food;
@@ -165,6 +173,7 @@ export default function Gastos() {
     stats.efectivoEsperado = totalEfectivoEntrante - totalSalidas;
 
     setCierreStats(stats);
+    setHasPendingOrders(pending);
   };
 
   const handleSaveGasto = async (e) => {
@@ -264,7 +273,7 @@ export default function Gastos() {
           {loading ? <p>Cargando...</p> : (
             <div className="cierres-list">
               {cierres.map(c => (
-                <div key={c.id} className="cierre-item">
+                <div key={c.id} className="cierre-item" onClick={() => setSelectedCierre(c)} style={{cursor: 'pointer', transition: 'background 0.2s'}} title="Ver detalle del cierre">
                   <div className="cierre-info">
                     <strong>Fecha:</strong> {formatDate(c.createdAt)} <br/>
                     <span className="cierre-notes">{c.notes}</span>
@@ -454,14 +463,147 @@ export default function Gastos() {
               
               <div className="form-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowCierreModal(false)}>Cancelar</button>
-                <button type="submit" className="btn-primary highlight-btn" style={{flex: 2}}>Confirmar Cierre Diario</button>
+                <button type="submit" className="btn-primary highlight-btn" style={{flex: 2}} disabled={hasPendingOrders}>
+                  {hasPendingOrders ? 'Hay Pedidos Pendientes' : 'Confirmar Cierre Diario'}
+                </button>
               </div>
+              {hasPendingOrders && (
+                <p style={{color: '#FF5252', fontSize: '0.9rem', marginTop: '1rem', textAlign: 'center'}}>
+                  No puedes realizar el cierre porque aún tienes pedidos pendientes de entrega o pendientes de pago en el día.
+                </p>
+              )}
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal Detalle Abonos */}
+
+
+      {/* Modal Historial Cierre Detalle */}
+      {selectedCierre && selectedCierre.stats && (
+        <div className="modal-overlay" style={{padding: '1rem', zIndex: 1000}}>
+          <div className="modal-card card" style={{maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem'}}>
+              <div>
+                 <h2>Detalle de Cierre</h2>
+                 <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0}}>{formatDate(selectedCierre.createdAt)}</p>
+              </div>
+              <button className="icon-btn" style={{fontSize: '1.5rem'}} onClick={() => setSelectedCierre(null)}><X size={24} /></button>
+            </div>
+            
+            <div style={{display: 'flex', flexDirection: 'column', gap: '1rem', color: '#000'}}>
+              
+              {/* SECCION 1: VENTAS */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <h3 style={{backgroundColor: '#e3f2fd', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc'}}>1. Cuadre de Ventas del Día (Total: L. {selectedCierre.stats.ventaTotal?.toFixed(2) || '0.00'})</h3>
+                <div style={{padding: '0.5rem', backgroundColor: '#fff'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Ventas cobradas en Efectivo:</span>
+                    <span>L. {selectedCierre.stats.efectivoVentas?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Ventas cobradas en Bancos:</span>
+                    <span>L. {selectedCierre.stats.transferenciasVentas?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Ventas dadas al Crédito:</span>
+                    <span>L. {selectedCierre.stats.creditoOtorgado?.toFixed(2) || '0.00'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCION 2: ABONOS */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <div style={{backgroundColor: '#e8f5e9', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                   <h3 style={{margin: 0}}>2. Abonos Recibidos (L. {((selectedCierre.stats.abonosEfectivo || 0) + (selectedCierre.stats.abonosTransferencia || 0)).toFixed(2)})</h3>
+                </div>
+                <div style={{padding: '0.5rem', backgroundColor: '#fff'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Abonos recibidos en Efectivo:</span>
+                    <span>L. {selectedCierre.stats.abonosEfectivo?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Abonos recibidos en Banco:</span>
+                    <span>L. {selectedCierre.stats.abonosTransferencia?.toFixed(2) || '0.00'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCION 3: SALIDAS Y GASTOS */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <h3 style={{backgroundColor: '#ffebee', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc'}}>3. Salidas de Efectivo (Total: L. {((selectedCierre.stats.gastosOperativos || 0) + (selectedCierre.stats.gastosTerceros || 0) + (selectedCierre.stats.pagosRepartidores || 0)).toFixed(2)})</h3>
+                <div style={{padding: '0.5rem', backgroundColor: '#fff'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Gastos Operativos:</span>
+                    <span className="danger-text">L. {selectedCierre.stats.gastosOperativos?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Pagos a Terceros (Varios):</span>
+                    <span className="danger-text">L. {selectedCierre.stats.gastosTerceros?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
+                    <span>Pagos a Repartidores (Delivery):</span>
+                    <span className="danger-text">L. {selectedCierre.stats.pagosRepartidores?.toFixed(2) || '0.00'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCION 4: GRAN TOTAL A CUADRAR */}
+              <div style={{border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden'}}>
+                <h3 style={{backgroundColor: '#fff3e0', margin: 0, padding: '0.5rem', borderBottom: '1px solid #ccc'}}>4. Totales Financieros (Lo que debe haber)</h3>
+                <div style={{padding: '1rem', backgroundColor: '#fff'}}>
+                  <div style={{backgroundColor: 'rgba(255,152,0,0.1)', padding: '1rem', border: '1px solid #ff9800', marginBottom: '1rem', borderRadius: '4px'}}>
+                     <div style={{display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem'}}>
+                       <span>EFECTIVO A ENTREGAR:</span>
+                       <span>L. {selectedCierre.stats.efectivoEsperado?.toFixed(2) || '0.00'}</span>
+                     </div>
+                  </div>
+
+                  <div style={{backgroundColor: 'rgba(33,150,243,0.1)', padding: '1rem', border: '1px solid #2196f3', borderRadius: '4px'}}>
+                     <div style={{display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem'}}>
+                       <span>TOTAL EN BANCOS:</span>
+                       <span>L. {selectedCierre.stats.depositosTotal?.toFixed(2) || '0.00'}</span>
+                     </div>
+                     <div style={{borderTop: '1px dashed #2196f3', paddingTop: '0.5rem', marginTop: '0.5rem'}}>
+                        {selectedCierre.stats.bancos && Object.entries(selectedCierre.stats.bancos).filter(([k,v]) => v > 0).map(([banco, monto]) => (
+                          <div key={banco} style={{display: 'flex', justifyContent: 'space-between', padding: '0.1rem 0'}}>
+                             <span>{banco}:</span>
+                             <span>L. {monto.toFixed(2)}</span>
+                          </div>
+                        ))}
+                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CUADRE FINAL */}
+              <div style={{padding: '1rem', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '8px', border: '1px solid #ccc', marginTop: '1rem'}}>
+                <h3 style={{margin: '0 0 1rem 0', textAlign: 'center'}}>Cuadre Físico Reportado</h3>
+                <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', marginBottom: '0.5rem'}}>
+                  <span>Efectivo Físico Contado:</span>
+                  <strong>L. {selectedCierre.actualCash?.toFixed(2) || '0.00'}</strong>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem'}}>
+                  <span>Diferencia (Sobrante/Faltante):</span>
+                  <strong className={(selectedCierre.difference || 0) < 0 ? 'danger-text' : 'success-text'}>
+                    L. {selectedCierre.difference?.toFixed(2) || '0.00'}
+                  </strong>
+                </div>
+                {selectedCierre.notes && (
+                  <div style={{marginTop: '1rem', padding: '0.5rem', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '4px'}}>
+                    <strong>Observaciones: </strong>
+                    <span>{selectedCierre.notes}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="form-actions" style={{marginTop: '2rem'}}>
+              <button type="button" className="btn-secondary" style={{width: '100%'}} onClick={() => setSelectedCierre(null)}>Cerrar Detalle</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showAbonosDetalleModal && (
         <div className="modal-overlay" style={{zIndex: 999}}>
           <div className="modal-card card" style={{maxWidth: '500px'}}>
