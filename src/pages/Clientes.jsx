@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { collection, getDocs, addDoc, doc, updateDoc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, setDoc, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
 import { printReceipt, printInvoice } from '../utils/printService';
-import { Users, Plus, DollarSign, Search, Printer } from 'lucide-react';
+import { Users, Plus, DollarSign, Search, Printer, Edit, Trash2 } from 'lucide-react';
 import './Clientes.css';
 
 export default function Clientes() {
@@ -17,6 +17,8 @@ export default function Clientes() {
 
   // Estados del modal/formulario
   const [showModal, setShowModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -58,16 +60,39 @@ export default function Clientes() {
   const handleSaveClient = async (e) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'clients'), {
-        ...formData,
-        createdAt: serverTimestamp()
-      });
-      await logAuditAction('NUEVO_CLIENTE', 'CLIENTES', `Cliente registrado: ${formData.name}`, currentUser);
+      if (editMode && editingId) {
+        await updateDoc(doc(db, 'clients', editingId), formData);
+        await logAuditAction('EDITAR_CLIENTE', 'CLIENTES', `Cliente editado: ${formData.name}`, currentUser);
+        toast.success("Cliente actualizado");
+      } else {
+        await addDoc(collection(db, 'clients'), {
+          ...formData,
+          createdAt: serverTimestamp()
+        });
+        await logAuditAction('NUEVO_CLIENTE', 'CLIENTES', `Cliente registrado: ${formData.name}`, currentUser);
+        toast.success("Cliente guardado");
+      }
       setShowModal(false);
+      setEditMode(false);
+      setEditingId(null);
       setFormData({ name: '', phone: '', rtn: '', razonSocial: '', cumpleanios: '', creditBalance: 0 });
       fetchClientes();
     } catch (error) {
       console.error("Error saving client:", error);
+      toast.error("Error al guardar cliente");
+    }
+  };
+
+  const handleDeleteClient = async (id, name) => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente al cliente ${name}?`)) return;
+    try {
+      await deleteDoc(doc(db, 'clients', id));
+      await logAuditAction('ELIMINAR_CLIENTE', 'CLIENTES', `Cliente eliminado: ${name}`, currentUser);
+      toast.success("Cliente eliminado");
+      fetchClientes();
+    } catch (error) {
+      console.error("Error deleting client:", error);
+      toast.error("Error al eliminar cliente");
     }
   };
 
@@ -223,7 +248,7 @@ export default function Clientes() {
           <button className="btn-secondary" onClick={handleSyncBalances}>
             Sincronizar Saldos
           </button>
-          <button className="btn-primary new-client-btn" onClick={() => setShowModal(true)}>
+          <button className="btn-primary new-client-btn" onClick={() => { setEditMode(false); setEditingId(null); setFormData({ name: '', phone: '', rtn: '', razonSocial: '', cumpleanios: '', creditBalance: 0 }); setShowModal(true); }}>
             <Plus size={18} /> Nuevo Cliente
           </button>
         </div>
@@ -256,7 +281,29 @@ export default function Clientes() {
           filteredClientes.map(cliente => (
             <div key={cliente.id} className="card cliente-card">
               <div className="cliente-info">
-                <h3>{cliente.name}</h3>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <h3>{cliente.name}</h3>
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className="icon-btn" style={{color: 'var(--text-secondary)'}} title="Editar Cliente" onClick={() => {
+                      setEditMode(true);
+                      setEditingId(cliente.id);
+                      setFormData({
+                        name: cliente.name || '',
+                        phone: cliente.phone || '',
+                        rtn: cliente.rtn || '',
+                        razonSocial: cliente.razonSocial || '',
+                        cumpleanios: cliente.cumpleanios || '',
+                        creditBalance: cliente.creditBalance || 0
+                      });
+                      setShowModal(true);
+                    }}>
+                      <Edit size={16} />
+                    </button>
+                    <button className="icon-btn" style={{color: '#FF5252'}} title="Eliminar Cliente" onClick={() => handleDeleteClient(cliente.id, cliente.name)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
                 <p>Tel: {cliente.phone || 'N/A'}</p>
                 {cliente.rtn && <p style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>RTN: {cliente.rtn}</p>}
                 {cliente.cumpleanios && <p style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>🎂 {cliente.cumpleanios}</p>}
@@ -294,8 +341,8 @@ export default function Clientes() {
       {/* Modal Nuevo Cliente */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-card card">
-            <h2>Nuevo Cliente</h2>
+          <div className="modal-card card" style={{maxWidth: '500px'}}>
+            <h2>{editMode ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}</h2>
             <form onSubmit={handleSaveClient} className="modal-form">
               <div className="form-group">
                 <label>Nombre del Cliente</label>
@@ -328,7 +375,7 @@ export default function Clientes() {
                 />
               </div>
               <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button type="button" className="btn-secondary" onClick={() => { setShowModal(false); setEditMode(false); setEditingId(null); setFormData({ name: '', phone: '', rtn: '', razonSocial: '', cumpleanios: '', creditBalance: 0 }); }}>Cancelar</button>
                 <button type="submit" className="btn-primary">Guardar Cliente</button>
               </div>
             </form>

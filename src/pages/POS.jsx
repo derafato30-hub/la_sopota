@@ -5,8 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
 import { printInvoice } from '../utils/printService';
-import { 
-  ShoppingCart, Send, UserPlus, FileEdit, Search } from 'lucide-react';
+import { ShoppingCart, Send, UserPlus, FileEdit, Search, Edit, Save } from 'lucide-react';
 import './POS.css';
 
 export default function POS() {
@@ -72,6 +71,11 @@ export default function POS() {
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', direccion: '', rtn: '', razonSocial: '' });
   
+  // Client Info Modal
+  const [showClientInfoModal, setShowClientInfoModal] = useState(false);
+  const [clientInfoData, setClientInfoData] = useState(null);
+  const [editingClientField, setEditingClientField] = useState(null);
+  const [clientEditValue, setClientEditValue] = useState('');
   // States for variations modal
   const [salsasDisponibles, setSalsasDisponibles] = useState([]);
   const [showVariationModal, setShowVariationModal] = useState(false);
@@ -133,6 +137,41 @@ export default function POS() {
       await updateDoc(doc(db, 'orders', orderId), { [field]: value });
       loadOrders();
     } catch(e) { console.error(e); }
+  };
+
+  const openClientInfoModal = async (clienteId) => {
+    try {
+      if (!clienteId) return toast.error('Este pedido no tiene un ID de cliente válido.');
+      const cDoc = await getDoc(doc(db, 'clients', clienteId));
+      if (cDoc.exists()) {
+        setClientInfoData({ id: cDoc.id, ...cDoc.data() });
+        setShowClientInfoModal(true);
+        setEditingClientField(null);
+      } else {
+        toast.error('Cliente no encontrado en la base de datos.');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al cargar la información del cliente.');
+    }
+  };
+
+  const handleSaveClientField = async (field) => {
+    try {
+      await updateDoc(doc(db, 'clients', clientInfoData.id), {
+        [field]: clientEditValue
+      });
+      // Actualizar vista local
+      setClientInfoData(prev => ({ ...prev, [field]: clientEditValue }));
+      // También podríamos actualizar la colección de customers global si está cargada
+      setCustomers(prev => prev.map(c => c.id === clientInfoData.id ? { ...c, [field]: clientEditValue } : c));
+      
+      toast.success('Información actualizada');
+      setEditingClientField(null);
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al actualizar');
+    }
   };
 
   const handleMarkDelivered = (order) => {
@@ -691,7 +730,14 @@ export default function POS() {
             {activeOrders.filter(o => o.estadoCocina === 'BORRADOR').map(o => (
               <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--text-secondary)'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                  <strong>{o.clientName}</strong>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                  </div>
                   <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
                     <span className="badge">{o.orderType}</span>
                     {o.deliveryTime && <span className="badge" style={{backgroundColor: '#673AB7', fontSize: '0.7rem', marginTop: '4px'}}>🕒 Entrega: {o.deliveryTime}</span>}
@@ -722,7 +768,14 @@ export default function POS() {
             {activeOrders.filter(o => o.estadoCocina === 'PENDIENTE').map(o => (
               <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--primary-color)'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                  <strong>{o.clientName}</strong>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                  </div>
                   <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
                     <span className="badge">{o.orderType}</span>
                     {o.deliveryTime && <span className="badge" style={{backgroundColor: '#673AB7', fontSize: '0.7rem', marginTop: '4px'}}>🕒 Entrega: {o.deliveryTime}</span>}
@@ -758,7 +811,14 @@ export default function POS() {
             {activeOrders.filter(o => o.estadoCocina === 'LISTO' && o.estadoEntrega === 'EN_LOCAL').map(o => (
               <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #FF9800'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                  <strong>{o.clientName}</strong>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                  </div>
                   <span className="badge" style={{backgroundColor: '#FF9800', color: 'black'}}>{o.orderType}</span>
                 </div>
                 <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
@@ -794,7 +854,14 @@ export default function POS() {
             {activeOrders.filter(o => o.estadoPago === 'PENDIENTE' && o.estadoEntrega === 'ENTREGADO').map(o => (
               <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #FF9800'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                  <strong>{o.clientName}</strong>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                  </div>
                   <span className="badge" style={{backgroundColor: '#FF9800', color: 'white'}}>{o.orderType}</span>
                 </div>
                 {o.driverName && (
@@ -821,7 +888,14 @@ export default function POS() {
             {activeOrders.filter(o => o.estadoEntrega === 'ENTREGADO' && (o.estadoPago === 'PAGADO' || o.estadoPago === 'CREDITO' || o.estadoPago === 'CONSUMO_PROPIO')).map(o => (
               <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #4CAF50', opacity: 0.7}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                  <strong style={{textDecoration: 'line-through'}}>{o.clientName}</strong>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: 'line-through'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                  </div>
                   <span className="badge" style={{backgroundColor: '#4CAF50', color: 'white'}}>{o.orderType}</span>
                 </div>
                 <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
@@ -1689,6 +1763,66 @@ export default function POS() {
                 </button>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showClientInfoModal && clientInfoData && (
+        <div className="modal-overlay" style={{zIndex: 9999}}>
+          <div className="modal-card card" style={{maxWidth: '450px'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+              <h2 style={{margin: 0}}>👤 Información del Cliente</h2>
+              <button className="icon-btn" onClick={() => setShowClientInfoModal(false)}>✕</button>
+            </div>
+            
+            <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+              {[
+                { label: 'Nombre', field: 'name' },
+                { label: 'Teléfono', field: 'phone' },
+                { label: 'RTN', field: 'rtn' },
+                { label: 'Razón Social', field: 'razonSocial' },
+                { label: 'Dirección', field: 'direccion' },
+                { label: 'Cumpleaños', field: 'cumpleanios', type: 'date' }
+              ].map(item => (
+                <div key={item.field} style={{backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '6px'}}>
+                  <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.25rem'}}>{item.label}</div>
+                  
+                  {editingClientField === item.field ? (
+                    <div style={{display: 'flex', gap: '0.5rem'}}>
+                      <input 
+                        type={item.type || 'text'} 
+                        className="input-field" 
+                        style={{padding: '0.4rem', flex: 1}}
+                        value={clientEditValue} 
+                        onChange={e => setClientEditValue(e.target.value)} 
+                        autoFocus
+                      />
+                      <button className="btn-primary" style={{padding: '0.4rem'}} onClick={() => handleSaveClientField(item.field)}>
+                        <Save size={16} />
+                      </button>
+                      <button className="btn-secondary" style={{padding: '0.4rem'}} onClick={() => setEditingClientField(null)}>
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <span style={{fontWeight: 'bold', fontSize: '1.1rem'}}>{clientInfoData[item.field] || <span style={{color: '#777', fontWeight: 'normal'}}>N/A</span>}</span>
+                      <button className="icon-btn" style={{color: 'var(--text-secondary)'}} onClick={() => {
+                        setEditingClientField(item.field);
+                        setClientEditValue(clientInfoData[item.field] || '');
+                      }}>
+                        <Edit size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              <div style={{backgroundColor: 'rgba(249, 115, 22, 0.1)', border: '1px solid var(--primary-color)', padding: '0.75rem', borderRadius: '6px', marginTop: '0.5rem'}}>
+                 <div style={{fontSize: '0.85rem', color: 'var(--primary-color)'}}>Saldo de Crédito Actual</div>
+                 <strong style={{fontSize: '1.2rem', color: 'var(--primary-color)'}}>L. {(clientInfoData.creditBalance || 0).toFixed(2)}</strong>
+              </div>
             </div>
           </div>
         </div>
