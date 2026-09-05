@@ -42,6 +42,7 @@ export default function POS() {
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
   const [payDriverFromRegister, setPayDriverFromRegister] = useState(true);
+  const [payDriverFromRegisterCheckout, setPayDriverFromRegisterCheckout] = useState(true);
 
   // States for Customer handling State
   const [dailyMenuData, setDailyMenuData] = useState({ carnes: [], acompanantes: [], sopas: [] });
@@ -262,6 +263,26 @@ export default function POS() {
 
       await updateDoc(doc(db, 'orders', paymentModalOrder.id), updateData);
       
+      // 3.5 Si el cliente pagó el envío por transferencia y marcamos pagar al repartidor de la caja
+      if (
+        paymentMethod === 'TRANSFERENCIA' && 
+        paymentModalOrder.orderType === 'ENVIO_COBRADO' && 
+        deliveryPaidByTransfer && 
+        payDriverFromRegisterCheckout && 
+        !paymentModalOrder.driverPaidFromRegister
+      ) {
+         await addDoc(collection(db, 'expenses'), {
+           amount: modalDeliveryFee,
+           reason: `Pago a repartidor: ${paymentModalOrder.driverName || 'No especificado'} - Fac: ${invoiceId}`,
+           isThirdParty: true,
+           createdBy: currentUser.uid,
+           createdAt: serverTimestamp()
+         });
+         await logAuditAction('NUEVO_GASTO', 'POS', `L. ${modalDeliveryFee} pagados a repartidor por envío (Cobro Transf).`, currentUser);
+         // Guardar que ya se le pagó para no duplicar en el futuro
+         await updateDoc(doc(db, 'orders', paymentModalOrder.id), { driverPaidFromRegister: true });
+      }
+
       // 4. Update Customer if credit
       if (isCredit && paymentModalOrder.clienteId !== 'generico') {
         const custRef = doc(db, 'clients', paymentModalOrder.clienteId);
@@ -713,7 +734,7 @@ export default function POS() {
                   <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
                   <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); setPayDriverFromRegisterCheckout(true); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -749,7 +770,7 @@ export default function POS() {
                     <button className="btn-primary" onClick={() => handleMarkDelivered(o)}>Entregar en Local</button>
                   )}
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); setPayDriverFromRegisterCheckout(true); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -781,7 +802,7 @@ export default function POS() {
                   L. {o.total.toFixed(2)} | Pago: <strong style={{color: '#FF9800'}}>{o.estadoPago}</strong>
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
+                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); setPayDriverFromRegisterCheckout(true); }}>Cobrar Ahora</button>
                   <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
                 </div>
@@ -1341,15 +1362,34 @@ export default function POS() {
                   <option value="Occidente">Occidente</option>
                 </select>
                 {paymentModalOrder.orderType === 'ENVIO_COBRADO' && (
-                  <div style={{marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', backgroundColor: 'rgba(246, 167, 75, 0.1)', borderRadius: '8px', border: '1px solid rgba(246, 167, 75, 0.3)'}}>
-                    <input 
-                      type="checkbox" 
-                      id="deliveryPaidByTransfer" 
-                      checked={deliveryPaidByTransfer} 
-                      onChange={e => setDeliveryPaidByTransfer(e.target.checked)} 
-                    />
-                    <label htmlFor="deliveryPaidByTransfer" style={{cursor: 'pointer', fontSize: '0.9rem', margin: 0}}>El cliente depositó/transfirió también el cobro de envío (L. {modalDeliveryFee})</label>
-                  </div>
+                  <>
+                    <div style={{marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', backgroundColor: 'rgba(246, 167, 75, 0.1)', borderRadius: '8px', border: '1px solid rgba(246, 167, 75, 0.3)'}}>
+                      <input 
+                        type="checkbox" 
+                        id="deliveryPaidByTransfer" 
+                        checked={deliveryPaidByTransfer} 
+                        onChange={e => setDeliveryPaidByTransfer(e.target.checked)} 
+                      />
+                      <label htmlFor="deliveryPaidByTransfer" style={{cursor: 'pointer', fontSize: '0.9rem', margin: 0}}>El cliente depositó/transfirió también el cobro de envío (L. {modalDeliveryFee})</label>
+                    </div>
+                    {deliveryPaidByTransfer && !paymentModalOrder.driverPaidFromRegister && (
+                      <div style={{marginTop: '0.5rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem', padding: '0.8rem', backgroundColor: 'rgba(255, 152, 0, 0.1)', borderRadius: '8px', border: '1px solid rgba(255, 152, 0, 0.3)'}}>
+                        <input 
+                          type="checkbox" 
+                          id="payDriverCheckout" 
+                          checked={payDriverFromRegisterCheckout} 
+                          onChange={e => setPayDriverFromRegisterCheckout(e.target.checked)} 
+                          style={{marginTop: '0.2rem'}}
+                        />
+                        <label htmlFor="payDriverCheckout" style={{cursor: 'pointer', fontSize: '0.9rem', margin: 0, fontWeight: 'bold'}}>
+                          ¿Pagar L. {modalDeliveryFee} al repartidor desde la caja de efectivo ahora?
+                          <p style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 'normal'}}>
+                            Esto creará automáticamente un registro de salida de dinero en los Gastos.
+                          </p>
+                        </label>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -1393,9 +1433,10 @@ export default function POS() {
               <button className="btn-primary" style={{backgroundColor: '#FF9800'}} onClick={() => {
                 setPaymentMethod('EFECTIVO'); 
                 setAmountReceived(''); 
-                setModalDeliveryFee(0); 
+                setModalDeliveryFee(unpaidWarningOrder.deliveryFee || 0); 
                 setIncludeDeliveryInInvoice(true); 
                 setPaymentModalOrder(unpaidWarningOrder);
+                setPayDriverFromRegisterCheckout(true);
                 setUnpaidWarningOrder(null);
               }}>Cobrar Ahora</button>
             </div>
@@ -1481,7 +1522,8 @@ export default function POS() {
                 await updateDoc(doc(db, 'orders', dispatchOrder.id), {
                   estadoEntrega: 'ENTREGADO',
                   driverName,
-                  driverPhone
+                  driverPhone,
+                  driverPaidFromRegister: (dispatchOrder.deliveryFee > 0 && payDriverFromRegister)
                 });
                 
                 // Si está marcado, generamos el gasto automático
