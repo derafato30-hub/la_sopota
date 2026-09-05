@@ -83,11 +83,14 @@ export default function Clientes() {
     }
   };
 
-  const handleDeleteClient = async (id, name) => {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente al cliente ${name}?`)) return;
+  const handleDeleteClient = async (cliente) => {
+    if (cliente.creditBalance && cliente.creditBalance > 0) {
+      return toast.error("No se puede eliminar un cliente con saldo pendiente.");
+    }
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente al cliente ${cliente.name}?`)) return;
     try {
-      await deleteDoc(doc(db, 'clients', id));
-      await logAuditAction('ELIMINAR_CLIENTE', 'CLIENTES', `Cliente eliminado: ${name}`, currentUser);
+      await deleteDoc(doc(db, 'clients', cliente.id));
+      await logAuditAction('ELIMINAR_CLIENTE', 'CLIENTES', `Cliente eliminado: ${cliente.name}`, currentUser);
       toast.success("Cliente eliminado");
       fetchClientes();
     } catch (error) {
@@ -299,7 +302,7 @@ export default function Clientes() {
                     }}>
                       <Edit size={16} />
                     </button>
-                    <button className="icon-btn" style={{color: '#FF5252'}} title="Eliminar Cliente" onClick={() => handleDeleteClient(cliente.id, cliente.name)}>
+                    <button className="icon-btn" style={{color: '#FF5252'}} title="Eliminar Cliente" onClick={() => handleDeleteClient(cliente)}>
                       <Trash2 size={16} />
                     </button>
                   </div>
