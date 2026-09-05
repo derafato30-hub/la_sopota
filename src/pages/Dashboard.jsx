@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { db } from '../firebase';
 import { generarPropuestaMenuIA } from '../utils/aiService';
 import { TrendingUp, ShoppingBag, Clock, Sparkles } from 'lucide-react';
@@ -11,6 +12,7 @@ export default function Dashboard() {
     ordenesPendientes: 0,
     ordenesEntregadas: 0,
   });
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Estados para la IA
@@ -19,6 +21,22 @@ export default function Dashboard() {
   const [aiError, setAiError] = useState('');
 
   useEffect(() => {
+    // TEMPORARY FIX FOR fac0173
+    const fixDuplicate = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'expenses'));
+        let found = [];
+        snap.forEach(d => {
+          if(d.data().reason?.includes('fac0173')) found.push(d);
+        });
+        if (found.length > 1) {
+          console.log("Deleting duplicate expense:", found[0].id);
+          await deleteDoc(doc(db, 'expenses', found[0].id));
+          toast.success("Gasto duplicado eliminado automáticamente.");
+        }
+      } catch(e) {}
+    };
+    fixDuplicate();
     fetchStats();
   }, []);
 
