@@ -1770,7 +1770,7 @@ export default function POS() {
 
       {showClientInfoModal && clientInfoData && (
         <div className="modal-overlay" style={{zIndex: 9999}}>
-          <div className="modal-card card" style={{maxWidth: '450px'}}>
+          <div className="modal-card card" style={{maxWidth: '450px', maxHeight: '90vh', overflowY: 'auto'}}>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
               <h2 style={{margin: 0}}>👤 Información del Cliente</h2>
               <button className="icon-btn" onClick={() => setShowClientInfoModal(false)}>✕</button>
@@ -1830,7 +1830,7 @@ export default function POS() {
 
       {showNewCustomerForm && (
         <div className="modal-overlay" style={{zIndex: 9999}}>
-          <div className="modal-card card" style={{maxWidth: '400px'}}>
+          <div className="modal-card card" style={{maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto'}}>
             <h2>Registrar Cliente Rápido</h2>
             <div className="form-group" style={{marginTop: '1rem'}}>
               <label>Nombre del Cliente</label>
