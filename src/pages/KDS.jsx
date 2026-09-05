@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { collection, query, where, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
@@ -12,21 +12,7 @@ export default function KDS() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState([]);
 
-  const [prevOrdersCount, setPrevOrdersCount] = useState(0);
-
-  useEffect(() => {
-    if (orders.length > prevOrdersCount && prevOrdersCount !== 0) {
-      // Intentar reproducir sonido de campana
-      try {
-        const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6ccf3232f.mp3?filename=ding-idea-40142.mp3');
-        audio.volume = 0.5;
-        audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
-        toast.info('¡Nueva Orden Entrante!');
-      } catch (err) {}
-    }
-    setPrevOrdersCount(orders.length);
-  }, [orders.length]);
-
+  const isInitialSnapshot = useRef(true);
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -44,9 +30,30 @@ export default function KDS() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let ordersData = [];
+      let hasNewOrders = false;
+
       snapshot.forEach((doc) => {
         ordersData.push({ id: doc.id, ...doc.data() });
       });
+
+      if (!isInitialSnapshot.current) {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            hasNewOrders = true;
+          }
+        });
+
+        if (hasNewOrders) {
+          try {
+            const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6ccf3232f.mp3?filename=ding-idea-40142.mp3');
+            audio.volume = 0.5;
+            audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
+            toast.info('¡Nueva Orden Entrante!');
+          } catch (err) {}
+        }
+      }
+      
+      isInitialSnapshot.current = false;
       
       // Ordenar localmente por fecha de creación (más antiguo primero)
       ordersData.sort((a, b) => {
