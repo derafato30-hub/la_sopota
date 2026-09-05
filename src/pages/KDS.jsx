@@ -11,7 +11,6 @@ import './KDS.css';
 export default function KDS() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState([]);
-
   const isInitialSnapshot = useRef(true);
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -78,6 +77,16 @@ export default function KDS() {
       );
     } catch (error) {
       console.error("Error cambiando el estado de la orden:", error);
+    }
+  };
+
+  const toggleItemCheck = async (order, idx) => {
+    try {
+      const newItems = [...order.items];
+      newItems[idx].checked = !newItems[idx].checked;
+      await updateDoc(doc(db, 'orders', order.id), { items: newItems });
+    } catch(error) {
+      console.error("Error actualizando checkbox:", error);
     }
   };
 
@@ -190,9 +199,28 @@ const parseItemName = (fullName) => {
         <ul>
           {order.items.map((item, idx) => {
             const { baseName, variation, sauces, tortillasOrExtras } = parseItemName(item.name);
+            const isChecked = item.checked;
+            
             return (
-              <li key={idx}>
-                <div className="kds-item-main">
+              <li 
+                key={idx}
+                onClick={() => toggleItemCheck(order, idx)}
+                style={{
+                  cursor: 'pointer',
+                  opacity: isChecked ? 0.4 : 1,
+                  textDecoration: isChecked ? 'line-through' : 'none',
+                  backgroundColor: isChecked ? 'rgba(0,0,0,0.2)' : undefined,
+                  transition: 'all 0.2s',
+                  borderRadius: '4px'
+                }}
+              >
+                <div className="kds-item-main" style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
+                  <input 
+                    type="checkbox"
+                    checked={!!isChecked}
+                    readOnly
+                    style={{ transform: 'scale(1.5)', margin: 0, cursor: 'pointer' }}
+                  />
                   <span className="kds-qty">{item.qty}x</span>
                   <span className="kds-name">{baseName}</span>
                 </div>
