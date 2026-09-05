@@ -1292,7 +1292,7 @@ export default function POS() {
 
       {paymentModalOrder && (
         <div className="modal-overlay">
-          <div className="modal-card card" style={{maxWidth: '400px'}}>
+          <div className="modal-card card" style={{maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto'}}>
             <h2>Cobrar Orden</h2>
             
             {paymentModalOrder.orderType === 'ENVIO_COBRADO' && (
@@ -1491,7 +1491,7 @@ export default function POS() {
 
       {showDispatchModal && (
         <div className="modal-overlay" style={{zIndex: 110}}>
-          <div className="modal-card card" style={{maxWidth: '400px'}}>
+          <div className="modal-card card" style={{maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto'}}>
             <h2>Despachar Orden en Ruta</h2>
             <div className="form-group" style={{marginTop: '1rem'}}>
               <label>Nombre del Repartidor (Opcional)</label>
@@ -1580,7 +1580,7 @@ export default function POS() {
 
       {showCheckoutModal && (
         <div className="modal-overlay" style={{zIndex: 110}}>
-          <div className="modal-card card" style={{maxWidth: '600px', width: '90%'}}>
+          <div className="modal-card card" style={{maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto'}}>
             <h2 style={{borderBottom: '2px solid var(--accent-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem'}}>
               🛒 Checkout de la Orden
             </h2>
