@@ -44,7 +44,11 @@ export default function Dashboard() {
         // Filtro rudimentario por fecha
         if (data.createdAt && data.createdAt.toMillis() > today.getTime()) {
           const foodIncome = data.foodTotal !== undefined ? data.foodTotal : ((data.total || 0) - (data.deliveryFee || 0));
-          ventasHoy += foodIncome;
+          
+          if (data.metodoPago !== 'CONSUMO_PROPIO') {
+             ventasHoy += foodIncome;
+          }
+          
           if (data.estadoCocina === 'PENDIENTE' || data.estadoCocina === 'PREPARANDO') pendientes++;
           if (data.estadoCocina === 'LISTO') entregadas++; // Simplificado: LISTO significa entregada
         }

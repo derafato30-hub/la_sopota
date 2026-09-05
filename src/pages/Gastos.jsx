@@ -86,11 +86,11 @@ export default function Gastos() {
     const qExp = query(collection(db, 'expenses'), where('createdAt', '>=', startOfToday));
     const snapExp = await getDocs(qExp);
 
-    let stats = {
-      ventaTotal: 0, creditoOtorgado: 0,
-      efectivoVentas: 0, transferenciasVentas: 0,
-      abonosEfectivo: 0, abonosTransferencia: 0,
-      gastosOperativos: 0, gastosTerceros: 0, pagosRepartidores: 0,
+      let stats = {
+        ventaTotal: 0, creditoOtorgado: 0, consumoInterno: 0,
+        efectivoVentas: 0, transferenciasVentas: 0,
+        abonosEfectivo: 0, abonosTransferencia: 0,
+        gastosOperativos: 0, gastosTerceros: 0, pagosRepartidores: 0,
       enviosTransferencia: 0,
       efectivoEsperado: 0, depositosTotal: 0,
       bancos: { 'Bac Antony': 0, 'Bac Delmy': 0, 'Bac Elmer': 0, 'Banpais': 0, 'Atlantida': 0, 'Ficohsa': 0, 'Davivienda': 0, 'Occidente': 0 },
@@ -108,7 +108,12 @@ export default function Gastos() {
       }
 
       const food = o.foodTotal !== undefined ? o.foodTotal : (o.total - (o.deliveryFee || 0));
-      stats.ventaTotal += food;
+      
+      if (o.metodoPago === 'CONSUMO_PROPIO') {
+         stats.consumoInterno = (stats.consumoInterno || 0) + food;
+      } else {
+         stats.ventaTotal += food;
+      }
 
       if (o.estadoPago === 'CREDITO') {
         stats.creditoOtorgado += food;
@@ -347,6 +352,10 @@ export default function Gastos() {
                   <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0'}}>
                     <span>Ventas dadas al Crédito:</span>
                     <span>L. {cierreStats.creditoOtorgado.toFixed(2)}</span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', color: 'var(--text-secondary)'}}>
+                    <span>Consumo Interno / Cortesías:</span>
+                    <span>L. {cierreStats.consumoInterno?.toFixed(2) || '0.00'} (No sumado a venta)</span>
                   </div>
                   <div style={{textAlign: 'right', fontSize: '0.85rem', marginTop: '0.5rem', borderTop: '1px dashed #ccc', paddingTop: '0.25rem', color: (Math.abs(cierreStats.efectivoVentas + cierreStats.transferenciasVentas + cierreStats.creditoOtorgado - cierreStats.ventaTotal) < 0.01) ? 'green' : 'red'}}>
                     Suma desglose: L. {(cierreStats.efectivoVentas + cierreStats.transferenciasVentas + cierreStats.creditoOtorgado).toFixed(2)}
