@@ -21,22 +21,6 @@ export default function Dashboard() {
   const [aiError, setAiError] = useState('');
 
   useEffect(() => {
-    // TEMPORARY FIX FOR fac0173
-    const fixDuplicate = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'expenses'));
-        let found = [];
-        snap.forEach(d => {
-          if(d.data().reason?.includes('fac0173')) found.push(d);
-        });
-        if (found.length > 1) {
-          console.log("Deleting duplicate expense:", found[0].id);
-          await deleteDoc(doc(db, 'expenses', found[0].id));
-          toast.success("Gasto duplicado eliminado automáticamente.");
-        }
-      } catch(e) {}
-    };
-    fixDuplicate();
     fetchStats();
   }, []);
 
