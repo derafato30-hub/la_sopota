@@ -66,7 +66,7 @@ export default function KDS() {
 
         if (incomingPings.length > 0) {
           try {
-            const pingAudio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_24a2be2897.mp3?filename=service-bell-ring-14610.mp3');
+            const pingAudio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6ccf3232f.mp3?filename=ding-idea-40142.mp3');
             pingAudio.volume = 0.8;
             pingAudio.play().catch(e => console.log(e));
           } catch(e) {}
