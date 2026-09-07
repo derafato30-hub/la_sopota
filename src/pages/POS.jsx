@@ -484,11 +484,11 @@ export default function POS() {
     } else {
       let maxSauces = 1;
       if (selectedItem?.type === 'alitas') {
-        const name = selectedVariation?.name || '';
-        if (name.includes('6')) maxSauces = 1;
-        else if (name.includes('8') || name.includes('12')) maxSauces = 2;
+        const name = ((selectedVariation?.name || '') + ' ' + (selectedItem?.name || '')).toLowerCase();
+        if (name.includes('24')) maxSauces = 4;
         else if (name.includes('18')) maxSauces = 3;
-        else if (name.includes('24')) maxSauces = 4;
+        else if (name.includes('8') || name.includes('12')) maxSauces = 2;
+        else if (name.includes('6')) maxSauces = 1;
       } else {
         maxSauces = 99; // no limit for other items if any
       }
@@ -1190,11 +1190,11 @@ export default function POS() {
                 <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>
                   Elige Salsas (Max {
                     (() => {
-                      const n = selectedVariation?.name || '';
-                      if (n.includes('6')) return 1;
-                      if (n.includes('8') || n.includes('12')) return 2;
-                      if (n.includes('18')) return 3;
+                      const n = ((selectedVariation?.name || '') + ' ' + (selectedItem?.name || '')).toLowerCase();
                       if (n.includes('24')) return 4;
+                      if (n.includes('18')) return 3;
+                      if (n.includes('8') || n.includes('12')) return 2;
+                      if (n.includes('6')) return 1;
                       return 1;
                     })()
                   }):
