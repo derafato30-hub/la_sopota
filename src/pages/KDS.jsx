@@ -11,6 +11,8 @@ import './KDS.css';
 export default function KDS() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState([]);
+  const [pingedOrders, setPingedOrders] = useState({});
+  const lastPingedTimestamps = useRef({});
   const isInitialSnapshot = useRef(true);
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -36,9 +38,20 @@ export default function KDS() {
       });
 
       if (!isInitialSnapshot.current) {
+        let incomingPings = [];
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added') {
             hasNewOrders = true;
+          }
+          if (change.type === 'modified' || change.type === 'added') {
+            const data = change.doc.data();
+            if (data.pingTimestamp) {
+              const pingMs = data.pingTimestamp.toMillis();
+              if (Date.now() - pingMs < 10000 && lastPingedTimestamps.current[change.doc.id] !== pingMs) {
+                lastPingedTimestamps.current[change.doc.id] = pingMs;
+                incomingPings.push(change.doc.id);
+              }
+            }
           }
         });
 
@@ -49,6 +62,28 @@ export default function KDS() {
             audio.play().catch(e => console.log('El navegador bloqueó el audio automático', e));
             toast.info('¡Nueva Orden Entrante!');
           } catch (err) {}
+        }
+
+        if (incomingPings.length > 0) {
+          try {
+            const pingAudio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_24a2be2897.mp3?filename=service-bell-ring-14610.mp3');
+            pingAudio.volume = 0.8;
+            pingAudio.play().catch(e => console.log(e));
+          } catch(e) {}
+          
+          setPingedOrders(prev => {
+            const next = { ...prev };
+            incomingPings.forEach(id => next[id] = true);
+            return next;
+          });
+          
+          setTimeout(() => {
+            setPingedOrders(prev => {
+              const next = { ...prev };
+              incomingPings.forEach(id => delete next[id]);
+              return next;
+            });
+          }, 5000);
         }
       }
       
@@ -182,7 +217,14 @@ const parseItemName = (fullName) => {
         }
       }}
       key={order.id} 
-      className={`kds-card ${getCardTypeClass(order.orderType)} status-${(order.estadoCocina || '').toLowerCase()}`}
+      className={`kds-card ${getCardTypeClass(order.orderType)} status-${(order.estadoCocina || '').toLowerCase()} ${pingedOrders[order.id] ? 'pinged-card' : ''}`}
+      style={{
+        boxShadow: pingedOrders[order.id] ? '0 0 25px 8px rgba(255, 152, 0, 0.8)' : undefined,
+        border: pingedOrders[order.id] ? '3px solid #ff9800' : undefined,
+        transition: 'box-shadow 0.3s ease-in-out, border 0.3s ease-in-out',
+        transform: pingedOrders[order.id] ? 'scale(1.02)' : 'none',
+        zIndex: pingedOrders[order.id] ? 10 : 1
+      }}
     >
       <div className="kds-card-header">
         <div className="kds-card-title">

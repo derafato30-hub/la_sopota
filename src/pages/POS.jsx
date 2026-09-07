@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
 import { printInvoice } from '../utils/printService';
-import { ShoppingCart, Send, UserPlus, FileEdit, Search, Edit, Save } from 'lucide-react';
+import { ShoppingCart, Send, UserPlus, FileEdit, Search, Edit, Save, Bell } from 'lucide-react';
 import './POS.css';
 
 export default function POS() {
@@ -137,6 +137,16 @@ export default function POS() {
       await updateDoc(doc(db, 'orders', orderId), { [field]: value });
       loadOrders();
     } catch(e) { console.error(e); }
+  };
+
+  const handlePingOrder = async (orderId) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { pingTimestamp: serverTimestamp() });
+      toast.success("Notificación enviada a cocina.");
+    } catch(e) {
+      console.error(e);
+      toast.error("Error al enviar notificación.");
+    }
   };
 
   const openClientInfoModal = async (clienteId) => {
@@ -718,6 +728,9 @@ export default function POS() {
                          <UserPlus size={16} />
                        </button>
                     )}
+                    <button className="icon-btn" style={{padding: '2px', color: '#ff9800'}} title="Recordar a Cocina" onClick={() => handlePingOrder(o.id)}>
+                      <Bell size={16} />
+                    </button>
                   </div>
                   <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
                     <span className="badge">{o.orderType}</span>
@@ -756,6 +769,9 @@ export default function POS() {
                          <UserPlus size={16} />
                        </button>
                     )}
+                    <button className="icon-btn" style={{padding: '2px', color: '#ff9800'}} title="Recordar a Cocina" onClick={() => handlePingOrder(o.id)}>
+                      <Bell size={16} />
+                    </button>
                   </div>
                   <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
                     <span className="badge">{o.orderType}</span>
@@ -799,6 +815,9 @@ export default function POS() {
                          <UserPlus size={16} />
                        </button>
                     )}
+                    <button className="icon-btn" style={{padding: '2px', color: '#ff9800'}} title="Recordar a Cocina" onClick={() => handlePingOrder(o.id)}>
+                      <Bell size={16} />
+                    </button>
                   </div>
                   <span className="badge" style={{backgroundColor: '#FF9800', color: 'black'}}>{o.orderType}</span>
                 </div>
