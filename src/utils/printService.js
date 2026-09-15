@@ -64,7 +64,11 @@ export const printInvoice = (invoice) => {
         <p><strong>Fecha:</strong> ${date}</p>
         <p><strong>Cliente:</strong> ${invoice.razonSocial || invoice.clientName || 'Consumidor Final'}</p>
         ${invoice.rtn ? `<p><strong>RTN:</strong> ${invoice.rtn}</p>` : ''}
-        <p><strong>Pago:</strong> ${invoice.metodoPago} ${invoice.banco ? `(${invoice.banco})` : ''}</p>
+        ${invoice.pagosMultiples && invoice.pagosMultiples.length > 0 
+          ? `<div style="margin-top: 5px;"><strong>Pagos:</strong><ul style="margin: 2px 0; padding-left: 15px;">${invoice.pagosMultiples.map(p => `<li>${p.method === 'PAGO_REPARTIDOR' ? 'A Repartidor' : p.method}: L. ${p.amount.toFixed(2)} ${p.bank ? `(${p.bank})` : ''}</li>`).join('')}</ul></div>`
+          : `<p><strong>Pago:</strong> ${invoice.metodoPago} ${invoice.banco ? `(${invoice.banco})` : ''}</p>`
+        }
+        ${invoice.vuelto ? `<p><strong>Vuelto:</strong> L. ${Number(invoice.vuelto).toFixed(2)}</p>` : ''}
         ${invoice.orderType ? `<p><strong>Tipo:</strong> ${invoice.orderType}</p>` : ''}
       </div>
       

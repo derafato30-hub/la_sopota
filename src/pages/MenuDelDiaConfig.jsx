@@ -118,11 +118,16 @@ export default function MenuDelDiaConfig() {
       
       const newConfig = { ...prev, [type]: updatedList };
       
-      // Si deseleccionamos una sopa, limpiamos su inventario
+      // Si deseleccionamos una sopa o carne, limpiamos su inventario
       if (type === 'sopasSeleccionadas' && !updatedList.includes(itemId)) {
          const newInv = { ...prev.sopasInventario };
          delete newInv[itemId];
          newConfig.sopasInventario = newInv;
+      }
+      if (type === 'carnesSeleccionadas' && !updatedList.includes(itemId)) {
+         const newInv = { ...prev.carnesInventario };
+         delete newInv[itemId];
+         newConfig.carnesInventario = newInv;
       }
       return newConfig;
     });
@@ -134,6 +139,16 @@ export default function MenuDelDiaConfig() {
       sopasInventario: {
         ...(prev.sopasInventario || {}),
         [sopaId]: Number(qty)
+      }
+    }));
+  };
+
+  const handleCarneInventoryChange = (carneId, qty) => {
+    setDailyConfig(prev => ({
+      ...prev,
+      carnesInventario: {
+        ...(prev.carnesInventario || {}),
+        [carneId]: Number(qty) * 1.5 // Guardamos internamente como "Medios" (1 Completo = 1.5 Medios)
       }
     }));
   };
@@ -358,16 +373,42 @@ export default function MenuDelDiaConfig() {
             style={{marginBottom: '1rem'}}
           />
           <div className="checkbox-list">
-            {filteredCarnes.map(carne => (
-              <div key={carne.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
+            {filteredCarnes.map(carne => {
+              const isSelected = (dailyConfig.carnesSeleccionadas || []).includes(carne.id);
+              const invMedios = (dailyConfig.carnesInventario || {})[carne.id] || 0;
+              const invCompletos = (invMedios / 1.5) || 0;
+              return (
+              <div key={carne.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', backgroundColor: isSelected ? 'rgba(76, 175, 80, 0.1)' : 'transparent', padding: '0.5rem', borderRadius: '4px'}}>
                 <label className="checkbox-item" style={{flex: 1, margin: 0}}>
                   <input 
                     type="checkbox" 
-                    checked={(dailyConfig.carnesSeleccionadas || []).includes(carne.id)}
+                    checked={isSelected}
                     onChange={() => handleCheckboxChange('carnesSeleccionadas', carne.id)}
                   />
                   <span>{carne.name}</span>
                 </label>
+
+                {isSelected && (
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '1rem', flexDirection: 'column', alignItems: 'flex-end'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                      <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>Completos:</span>
+                      <input 
+                        type="number" 
+                        min="0"
+                        className="input-field" 
+                        style={{width: '70px', padding: '0.2rem'}}
+                        value={invCompletos}
+                        onChange={(e) => handleCarneInventoryChange(carne.id, e.target.value)}
+                      />
+                    </div>
+                    {invMedios > 0 && (
+                      <span style={{fontSize: '0.75rem', color: 'var(--primary-color)'}}>
+                        Equivale a {invMedios.toFixed(1)} Medios
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div style={{display: 'flex', gap: '0.25rem'}}>
                   <button className="btn-secondary" style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem', backgroundColor: carne.available !== false ? 'var(--success-color)' : 'red', color: 'white', border: 'none'}} onClick={() => handleToggleAvailability(carne)}>
                     {carne.available !== false ? 'Disp' : 'Agotado'}
@@ -376,7 +417,7 @@ export default function MenuDelDiaConfig() {
                   <button className="btn-secondary" style={{padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'red', borderColor: 'red'}} onClick={() => handleDeleteItem(carne.id, carne.name)}>✕</button>
                 </div>
               </div>
-            ))}
+            )})}
             {filteredCarnes.length === 0 && (
               <div style={{marginTop: '1rem', textAlign: 'center'}}>
                 <p className="empty-msg" style={{margin: '0 0 0.5rem 0'}}>No se encontraron carnes.</p>

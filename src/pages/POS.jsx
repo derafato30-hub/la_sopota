@@ -32,6 +32,9 @@ export default function POS() {
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [paymentBank, setPaymentBank] = useState('Bac Antony');
   const [amountReceived, setAmountReceived] = useState('');
+  const [splitPayments, setSplitPayments] = useState([]);
+  const [isMultiplePayments, setIsMultiplePayments] = useState(false);
+  const [currentPaymentAmount, setCurrentPaymentAmount] = useState('');
   const [modalDeliveryFee, setModalDeliveryFee] = useState(0);
   const [includeDeliveryInInvoice, setIncludeDeliveryInInvoice] = useState(true);
   const [deliveryPaidByTransfer, setDeliveryPaidByTransfer] = useState(true);
@@ -46,7 +49,7 @@ export default function POS() {
   // States for Customer handling State
   const [dailyMenuData, setDailyMenuData] = useState({ carnes: [], acompanantes: [], sopas: [] });
   const [showDailyMenuModal, setShowDailyMenuModal] = useState(false);
-  const [dmSize, setDmSize] = useState('COMPLETO');
+  const [dmSize, setDmSize] = useState(null);
   const [dmSelectedCarne, setDmSelectedCarne] = useState(null);
   const [dmSelectedSides, setDmSelectedSides] = useState([]);
   const [showSopaModal, setShowSopaModal] = useState(false);
@@ -63,6 +66,7 @@ export default function POS() {
   
   // Stock de Sopas
   const [soldSoups, setSoldSoups] = useState({});
+  const [soldCarnes, setSoldCarnes] = useState({});
   
   // Customer Management
   const [customers, setCustomers] = useState([]);
@@ -116,18 +120,24 @@ export default function POS() {
         return false;
       }));
 
-      // Calcular inventario de sopas vendidas hoy
+      // Calcular inventario de sopas y carnes vendidas hoy
       const sold = {};
+      const soldC = {};
       data.forEach(o => {
         if (o.createdAt?.toDate && o.createdAt.toDate().getTime() >= hoy.getTime() && o.estadoCocina !== 'BORRADOR') {
           (o.items || []).forEach(item => {
             if (item.type === 'sopa' || item.name.toLowerCase().includes('sopa')) {
               sold[item.id] = (sold[item.id] || 0) + item.qty;
             }
+            if (item.type === 'menu_dia' && item.carneId) {
+              const qtyMedios = item.dmSize === 'COMPLETO' ? (item.qty * 1.5) : (item.qty * 1);
+              soldC[item.carneId] = (soldC[item.carneId] || 0) + qtyMedios;
+            }
           });
         }
       });
       setSoldSoups(sold);
+      setSoldCarnes(soldC);
 
     } catch(e) { console.error(e); }
   };
@@ -239,18 +249,45 @@ export default function POS() {
     }
   };
 
-  const handleConfirmPayment = async () => {
+  const handleConfirmPayment = async (overrideSplitPayments = null) => {
     if (!paymentModalOrder) return;
-    const isCredit = paymentMethod === 'CREDITO';
-    const isConsumo = paymentMethod === 'CONSUMO_PROPIO';
-    const received = Number(amountReceived);
     
-    if (paymentMethod === 'EFECTIVO' && received < paymentModalOrder.total) {
-      return toast.error('El monto recibido es menor al total');
+    const hasDelivery = paymentModalOrder.orderType === 'ENVIO_COBRADO';
+    const finalTotal = paymentModalOrder.total + (hasDelivery ? modalDeliveryFee : 0);
+    
+    // Si NO estamos en modo múltiple, generamos el arreglo de splitPayments sobre la marcha.
+    let effectiveSplitPayments = overrideSplitPayments || [...splitPayments];
+    if (!isMultiplePayments && !overrideSplitPayments) {
+       effectiveSplitPayments = splitPayments.filter(p => p.isAuto); // Retener auto (PAGO_REPARTIDOR)
+       const simpleRemaining = finalTotal - effectiveSplitPayments.reduce((acc, p) => acc + p.amount, 0);
+       
+       if (paymentMethod === 'CONSUMO_PROPIO') {
+          effectiveSplitPayments.push({ method: 'CONSUMO_PROPIO', amount: finalTotal, bank: null });
+       } else {
+          let amt = Number(currentPaymentAmount);
+          if (!currentPaymentAmount) amt = simpleRemaining; // Si no puso monto, asume exacto
+          
+          if (paymentMethod === 'EFECTIVO' && amt < simpleRemaining) {
+             return toast.error("El monto ingresado es menor al total.");
+          }
+          effectiveSplitPayments.push({ method: paymentMethod, amount: amt, bank: paymentMethod === 'TRANSFERENCIA' ? paymentBank : null });
+       }
     }
 
+    const totalAdded = effectiveSplitPayments.reduce((acc, p) => acc + p.amount, 0);
+
+    const isConsumo = effectiveSplitPayments.some(p => p.method === 'CONSUMO_PROPIO');
+    const hasCredit = effectiveSplitPayments.some(p => p.method === 'CREDITO');
+    
+    const realPayments = effectiveSplitPayments.filter(p => p.method !== 'PAGO_REPARTIDOR');
+    const primaryMethod = realPayments.length === 1 ? realPayments[0].method : (realPayments.length > 1 ? 'MULTIPLE' : 'EFECTIVO');
+    const primaryBank = realPayments.length === 1 ? realPayments[0].bank : null;
+    
+    let estadoBase = 'PAGADA';
+    if (isConsumo) estadoBase = 'CORTESÍA';
+    if (hasCredit) estadoBase = 'CRÉDITO';
+
     try {
-      // 1. Get next invoice number
       const metaRef = doc(db, 'metadata', 'invoices');
       const metaSnap = await getDoc(metaRef);
       let nextNum = 1;
@@ -259,82 +296,76 @@ export default function POS() {
       }
       const invoiceId = `FAC-${String(nextNum).padStart(4, '0')}`;
       
-      const finalTotal = paymentModalOrder.total + (paymentModalOrder.orderType === 'ENVIO_COBRADO' ? modalDeliveryFee : 0);
-      
       const cust = customers.find(c => c.id === paymentModalOrder.clienteId);
 
-      // 2. Create invoice
       const newInvoice = {
-        id: invoiceId, // Store as field too just in case
+        id: invoiceId, 
         orderId: paymentModalOrder.id,
         clienteId: paymentModalOrder.clienteId,
         clientName: cust?.razonSocial || paymentModalOrder.clientName,
         rtn: cust?.rtn || null,
         razonSocial: cust?.razonSocial || null,
-        total: finalTotal, // include delivery if applicable
-        foodTotal: paymentModalOrder.total, // keep base food cost separate for dashboard
-        deliveryFee: paymentModalOrder.orderType === 'ENVIO_COBRADO' ? modalDeliveryFee : 0,
+        total: finalTotal,
+        foodTotal: paymentModalOrder.total,
+        deliveryFee: hasDelivery ? modalDeliveryFee : 0,
         includeDeliveryInInvoice,
         items: paymentModalOrder.items,
-        metodoPago: paymentMethod,
-        banco: paymentMethod === 'TRANSFERENCIA' ? paymentBank : null,
-        estado: isCredit ? 'CRÉDITO' : (isConsumo ? 'CORTESÍA' : 'PAGADA'),
+        metodoPago: primaryMethod,
+        banco: primaryBank,
+        pagosMultiples: effectiveSplitPayments,
+        estado: estadoBase,
         createdBy: currentUser.uid,
         createdAt: serverTimestamp()
       };
+      
       await setDoc(doc(db, 'invoices', invoiceId), newInvoice);
       await setDoc(metaRef, { lastCorrelative: nextNum });
 
-      // 3. Update Order
       const updateData = {
-        estadoPago: isCredit ? 'CREDITO' : (isConsumo ? 'CONSUMO_PROPIO' : 'PAGADO'),
-        metodoPago: paymentMethod,
+        estadoPago: hasCredit ? 'CREDITO' : (isConsumo ? 'CONSUMO_PROPIO' : 'PAGADO'),
+        metodoPago: primaryMethod,
+        banco: primaryBank,
+        pagosMultiples: effectiveSplitPayments,
         total: finalTotal,
-        deliveryFee: paymentModalOrder.orderType === 'ENVIO_COBRADO' ? modalDeliveryFee : 0,
+        deliveryFee: hasDelivery ? modalDeliveryFee : 0,
         includeDeliveryInInvoice,
         invoiceId,
-        banco: paymentMethod === 'TRANSFERENCIA' ? paymentBank : null,
-        deliveryPaidByTransfer: paymentMethod === 'TRANSFERENCIA' && paymentModalOrder.orderType === 'ENVIO_COBRADO' ? deliveryPaidByTransfer : false
+        deliveryPaidByTransfer: false 
       };
       
-      if (paymentMethod === 'EFECTIVO') {
-        let expectedCollection = finalTotal;
-        if (paymentModalOrder.orderType === 'ENVIO_COBRADO') {
-           expectedCollection = paymentModalOrder.total;
-        }
-        
-        if (received < expectedCollection) {
-          toast.error(`El monto recibido (L. ${received}) es menor al total a cobrar en caja (L. ${expectedCollection}).`);
-          return;
-        }
-
-        updateData.montoRecibido = received;
-        updateData.vuelto = received - expectedCollection;
+      let vuelto = 0;
+      const lastPayment = effectiveSplitPayments[effectiveSplitPayments.length - 1];
+      if (totalAdded > finalTotal && lastPayment?.method === 'EFECTIVO') {
+         vuelto = totalAdded - finalTotal;
+         updateData.vuelto = vuelto;
+         updateData.montoRecibido = lastPayment.amount;
       }
 
       await updateDoc(doc(db, 'orders', paymentModalOrder.id), updateData);
       
-
-      // 4. Update Customer if credit
-      if (isCredit && paymentModalOrder.clienteId !== 'generico') {
-        const custRef = doc(db, 'clients', paymentModalOrder.clienteId);
-        const custSnap = await getDoc(custRef);
-        if (custSnap.exists()) {
-          const currentBalance = custSnap.data().creditBalance || 0;
-          await updateDoc(custRef, { creditBalance: currentBalance + finalTotal });
+      if (hasCredit && paymentModalOrder.clienteId !== 'generico') {
+        const creditTotal = effectiveSplitPayments.filter(p => p.method === 'CREDITO').reduce((acc, p) => acc + p.amount, 0);
+        if (creditTotal > 0) {
+          const custRef = doc(db, 'clients', paymentModalOrder.clienteId);
+          const custSnap = await getDoc(custRef);
+          if (custSnap.exists()) {
+            const currentBalance = custSnap.data().creditBalance || 0;
+            await updateDoc(custRef, { creditBalance: currentBalance + creditTotal });
+          }
         }
       }
 
-      await logAuditAction('COBRO_ORDEN', 'POS', `Orden cobrada con ${paymentMethod} por L.${finalTotal}. Fac: ${invoiceId}`, currentUser);
+      await logAuditAction('COBRO_ORDEN', 'POS', `Orden cobrada por L.${finalTotal} (Metodo: ${primaryMethod}). Fac: ${invoiceId}`, currentUser);
       
-      const v = paymentMethod === 'EFECTIVO' ? updateData.vuelto : null;
       setPaymentModalOrder(null);
       setPaymentMethod('EFECTIVO');
       setPaymentBank('Bac Antony');
       setAmountReceived('');
+      setSplitPayments([]);
+      setCurrentPaymentAmount('');
       loadOrders();
       
-      let msg = v !== null ? `Cobro exitoso.\nFactura generada: ${invoiceId}\n\nVuelto a entregar: L. ${v.toFixed(2)}` : `Cobro registrado.\nFactura generada: ${invoiceId}`;
+      let msg = vuelto > 0 ? `Cobro exitoso.\nFactura generada: ${invoiceId}\n\nVuelto a entregar: L. ${vuelto.toFixed(2)}` : `Cobro registrado.\nFactura generada: ${invoiceId}`;
       
       if (window.confirm(`${msg}\n\n¿Deseas imprimir la factura ahora?`)) {
         printInvoice({
@@ -542,11 +573,35 @@ export default function POS() {
   const [dmQuantity, setDmQuantity] = useState(1);
 
   const openDailyMenuModal = () => {
-    setDmSize('COMPLETO');
+    setDmSize(null);
     setDmSelectedCarne(null);
     setDmSelectedSides([]);
     setDmQuantity(1);
     setShowDailyMenuModal(true);
+  };
+
+  const handleSelectDmSize = (size) => {
+    setDmSize(size);
+    
+    if (dailyMenuData.carnes.length === 1) {
+       setDmSelectedCarne(dailyMenuData.carnes[0]);
+    } else {
+       setDmSelectedCarne(null);
+    }
+
+    if (size === 'COMPLETO') {
+       if (dailyMenuData.acompanantes.length === (dailyMenuConfig?.acompanantesCompleto || 3)) {
+          setDmSelectedSides(dailyMenuData.acompanantes.map(a => ({ side: a, qty: 1 })));
+       } else {
+          setDmSelectedSides([]);
+       }
+    } else if (size === 'MEDIO') {
+       if (dailyMenuData.acompanantes.length === (dailyMenuConfig?.acompanantesMedio || 2)) {
+          setDmSelectedSides(dailyMenuData.acompanantes.map(a => ({ side: a, qty: 1 })));
+       } else {
+          setDmSelectedSides([]);
+       }
+    }
   };
 
   const updateDmSideQty = (side, delta) => {
@@ -564,6 +619,7 @@ export default function POS() {
   };
 
   const handleAddDailyMenuToCart = () => {
+    if (!dmSize) return toast.error("Debes seleccionar el tamaño (Completo o Medio)");
     if (!dmSelectedCarne) return toast.error("Debes seleccionar una carne");
     const maxSides = dmSize === 'COMPLETO' ? dailyMenuConfig.acompanantesCompleto : dailyMenuConfig.acompanantesMedio;
     // flatten sides with quantities
@@ -601,7 +657,9 @@ export default function POS() {
       price: basePrice,
       qty: dmQuantity,
       comment: '',
-      addedExtras
+      addedExtras,
+      carneId: dmSelectedCarne.id,
+      dmSize: dmSize
     };
     setCart([...cart, cartItem]);
     setShowDailyMenuModal(false);
@@ -786,7 +844,7 @@ export default function POS() {
                   <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
                   <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (o.deliveryFee || 0), isAuto: true }] : []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -832,7 +890,7 @@ export default function POS() {
                     <button className="btn-primary" onClick={() => handleMarkDelivered(o)}>Entregar en Local</button>
                   )}
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (o.deliveryFee || 0), isAuto: true }] : []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -871,7 +929,7 @@ export default function POS() {
                   L. {o.total.toFixed(2)} | Pago: <strong style={{color: '#FF9800'}}>{o.estadoPago}</strong>
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
+                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (o.deliveryFee || 0), isAuto: true }] : []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
                   <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
                 </div>
@@ -1296,14 +1354,14 @@ export default function POS() {
             
             <div style={{display: 'flex', gap: '1rem', marginBottom: '1.5rem'}}>
               <label style={{flex: 1, display: 'flex', flexDirection: 'column', padding: '1rem', backgroundColor: dmSize === 'COMPLETO' ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.05)', border: dmSize === 'COMPLETO' ? '2px solid var(--accent-color)' : '2px solid transparent', borderRadius: '8px', cursor: 'pointer', textAlign: 'center'}}>
-                <input type="radio" name="dmsize" checked={dmSize === 'COMPLETO'} onChange={() => { setDmSize('COMPLETO'); setDmSelectedSides([]); }} style={{display: 'none'}} />
+                <input type="radio" name="dmsize" checked={dmSize === 'COMPLETO'} onChange={() => handleSelectDmSize('COMPLETO')} style={{display: 'none'}} />
                 <strong style={{fontSize: '1.2rem', color: dmSize === 'COMPLETO' ? 'var(--accent-color)' : 'inherit'}}>COMPLETO</strong>
                 <span style={{fontSize: '1.1rem', fontWeight: 'bold'}}>L. {dailyMenuConfig.precioCompleto}</span>
                 <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>{dailyMenuConfig.acompanantesCompleto} Acompañantes + {dailyMenuConfig.tortillasCompleto} Tortillas</span>
               </label>
 
               <label style={{flex: 1, display: 'flex', flexDirection: 'column', padding: '1rem', backgroundColor: dmSize === 'MEDIO' ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.05)', border: dmSize === 'MEDIO' ? '2px solid var(--accent-color)' : '2px solid transparent', borderRadius: '8px', cursor: 'pointer', textAlign: 'center'}}>
-                <input type="radio" name="dmsize" checked={dmSize === 'MEDIO'} onChange={() => { setDmSize('MEDIO'); setDmSelectedSides([]); }} style={{display: 'none'}} />
+                <input type="radio" name="dmsize" checked={dmSize === 'MEDIO'} onChange={() => handleSelectDmSize('MEDIO')} style={{display: 'none'}} />
                 <strong style={{fontSize: '1.2rem', color: dmSize === 'MEDIO' ? 'var(--accent-color)' : 'inherit'}}>MEDIO (1/2)</strong>
                 <span style={{fontSize: '1.1rem', fontWeight: 'bold'}}>L. {dailyMenuConfig.precioMedio}</span>
                 <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>{dailyMenuConfig.acompanantesMedio} Acompañantes + {dailyMenuConfig.tortillasMedio} Tortillas</span>
@@ -1313,12 +1371,32 @@ export default function POS() {
             <div style={{marginBottom: '1.5rem'}}>
               <h3 style={{fontSize: '1.1rem', marginBottom: '0.5rem'}}>1. Selecciona la Carne (Elige 1)</h3>
               <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem'}}>
-                {dailyMenuData.carnes.map(carne => (
-                  <label key={carne.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', cursor: 'pointer', border: dmSelectedCarne?.id === carne.id ? '1px solid var(--accent-color)' : '1px solid transparent'}}>
-                    <input type="radio" name="dmcarne" checked={dmSelectedCarne?.id === carne.id} onChange={() => setDmSelectedCarne(carne)} />
-                    <span>{carne.name}</span>
-                  </label>
-                ))}
+                {dailyMenuData.carnes.map(carne => {
+                  let stockDisplay = null;
+                  if (dailyMenuConfig && dailyMenuConfig.carnesInventario && dailyMenuConfig.carnesInventario[carne.id] !== undefined) {
+                      const totalMedios = dailyMenuConfig.carnesInventario[carne.id];
+                      const soldMedios = soldCarnes[carne.id] || 0;
+                      const availableMedios = totalMedios - soldMedios;
+                      const availableCompletos = availableMedios / 1.5;
+                      
+                      const badgeColor = availableCompletos <= 2 ? '#FF5252' : 'var(--primary-color)';
+                      stockDisplay = (
+                         <div style={{fontSize: '0.75rem', color: badgeColor, fontWeight: 'bold', marginTop: '0.2rem', marginLeft: '1.5rem'}}>
+                           Quedan {Number.isInteger(availableCompletos) ? availableCompletos : availableCompletos.toFixed(1)} Comp. o {Number.isInteger(availableMedios) ? availableMedios : availableMedios.toFixed(1)} Med.
+                         </div>
+                      );
+                  }
+
+                  return (
+                    <label key={carne.id} style={{display: 'flex', flexDirection: 'column', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', cursor: 'pointer', border: dmSelectedCarne?.id === carne.id ? '1px solid var(--accent-color)' : '1px solid transparent'}}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                        <input type="radio" name="dmcarne" checked={dmSelectedCarne?.id === carne.id} onChange={() => setDmSelectedCarne(carne)} />
+                        <span>{carne.name}</span>
+                      </div>
+                      {stockDisplay}
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
@@ -1368,14 +1446,18 @@ export default function POS() {
 
       {paymentModalOrder && (
         <div className="modal-overlay">
-          <div className="modal-card card" style={{maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto'}}>
+          <div className="modal-card card" style={{maxWidth: '450px', maxHeight: '90vh', overflowY: 'auto'}}>
             <h2>Cobrar Orden</h2>
             
             {paymentModalOrder.orderType === 'ENVIO_COBRADO' && (
               <div style={{backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid rgba(59, 130, 246, 0.3)'}}>
                 <div className="form-group" style={{marginBottom: '0.5rem'}}>
                   <label>Costo del Envío (L.)</label>
-                  <input type="number" className="input-field" min="0" value={modalDeliveryFee} onChange={e => setModalDeliveryFee(Number(e.target.value))} />
+                  <input type="number" className="input-field" min="0" value={modalDeliveryFee} onChange={e => {
+                    const newFee = Number(e.target.value);
+                    setModalDeliveryFee(newFee);
+                    setSplitPayments(prev => prev.map(p => p.isAuto ? { ...p, amount: newFee } : p));
+                  }} />
                 </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                   <input type="checkbox" id="includeDelivery" checked={includeDeliveryInInvoice} onChange={e => setIncludeDeliveryInInvoice(e.target.checked)} />
@@ -1384,102 +1466,171 @@ export default function POS() {
               </div>
             )}
             
+
             {(() => {
               const baseTotal = paymentModalOrder.total;
               const hasDelivery = paymentModalOrder.orderType === 'ENVIO_COBRADO';
-              
               const invoiceTotal = baseTotal + (hasDelivery && includeDeliveryInInvoice ? modalDeliveryFee : 0);
               const finalTotal = baseTotal + (hasDelivery ? modalDeliveryFee : 0);
               
-              let expectedToCollect = finalTotal;
-              let label = "Total a Cobrar en Caja:";
-              
-              if (hasDelivery) {
-                 if (paymentMethod === 'EFECTIVO') {
-                    expectedToCollect = baseTotal;
-                 } else if (paymentMethod === 'TRANSFERENCIA' && !deliveryPaidByTransfer) {
-                    expectedToCollect = baseTotal;
-                 }
-              }
-              
-              if (paymentMethod === 'TRANSFERENCIA') label = "Total a Recibir en Banco:";
-              if (paymentMethod === 'CREDITO') label = "Total a Cargar a Cuenta:";
+              const totalAdded = splitPayments.reduce((acc, p) => acc + p.amount, 0);
+              const remaining = Math.max(0, finalTotal - totalAdded);
+              const hasConsumo = splitPayments.some(p => p.method === 'CONSUMO_PROPIO');
+              const canAddPayment = remaining > 0 && !hasConsumo;
+
+              const handleAddPayment = () => {
+                let newPayments = [...splitPayments];
+
+                if (paymentMethod === 'CONSUMO_PROPIO') {
+                  newPayments = [{ method: 'CONSUMO_PROPIO', amount: finalTotal, bank: null }];
+                  setSplitPayments(newPayments);
+                  setCurrentPaymentAmount('');
+                  return handleConfirmPayment(newPayments);
+                }
+                
+                let amt = Number(currentPaymentAmount);
+                if (!currentPaymentAmount) {
+                   amt = remaining;
+                }
+
+                if (amt <= 0) return toast.error("Ingresa un monto válido");
+                if (amt > remaining && paymentMethod !== 'EFECTIVO') {
+                  return toast.error("Solo efectivo puede superar el saldo pendiente para calcular vuelto.");
+                }
+                
+                newPayments.push({ method: paymentMethod, amount: amt, bank: paymentMethod === 'TRANSFERENCIA' ? paymentBank : null });
+                setSplitPayments(newPayments);
+                setCurrentPaymentAmount('');
+                setPaymentMethod('EFECTIVO');
+                
+                const newTotalAdded = newPayments.reduce((acc, p) => acc + p.amount, 0);
+                if (newTotalAdded >= finalTotal) {
+                  // Completado, auto-confirmar
+                  handleConfirmPayment(newPayments);
+                }
+              };
+
+              const removePayment = (idx) => {
+                setSplitPayments(splitPayments.filter((_, i) => i !== idx));
+              };
+
+              // Si es un pago simple, "remaining" es todo menos el envio (si el envio está auto-asociado a PAGO_REPARTIDOR)
+              // Wait, in Single Mode we just ask for Amount to get change.
+              const simpleRemaining = finalTotal - (hasDelivery && splitPayments.some(p => p.isAuto && p.method === 'PAGO_REPARTIDOR') ? modalDeliveryFee : 0);
 
               return (
-                <div style={{fontSize: '1.5rem', fontWeight: 'bold', margin: '1rem 0', color: 'var(--accent-color)', textAlign: 'center'}}>
-                  <div style={{fontSize: '1.1rem', color: 'var(--text-secondary)'}}>
-                     Total Factura: L. {invoiceTotal.toFixed(2)}
+                <div>
+                  <div style={{fontSize: '1.2rem', fontWeight: 'bold', margin: '1rem 0', color: 'var(--text-color)', textAlign: 'center'}}>
+                    Total Factura: L. {invoiceTotal.toFixed(2)}
                   </div>
-                  {label} L. {expectedToCollect.toFixed(2)}
+                  
+                    <>
+                      {splitPayments.length > 0 && (
+                        <div style={{marginBottom: '1rem'}}>
+                          <h4>Pagos Añadidos:</h4>
+                          <ul style={{listStyle: 'none', padding: 0}}>
+                            {splitPayments.map((p, idx) => (
+                              <li key={idx} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: '0.5rem', marginBottom: '0.5rem', borderRadius: '4px'}}>
+                                <div>
+                                  <strong>{p.method === 'PAGO_REPARTIDOR' ? 'Retenido por Repartidor' : p.method}</strong> {p.bank ? `(${p.bank})` : ''}
+                                </div>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                                  <span>L. {p.amount.toFixed(2)}</span>
+                                  {!p.isAuto && <button className="icon-btn" style={{color: 'red'}} onClick={() => removePayment(idx)}>❌</button>}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div style={{fontSize: '1.5rem', fontWeight: 'bold', margin: '1rem 0', color: remaining > 0 ? 'var(--accent-color)' : '#4CAF50', textAlign: 'center'}}>
+                        {remaining > 0 ? `Saldo Pendiente: L. ${remaining.toFixed(2)}` : 'Saldo Completado'}
+                      </div>
+
+                      {totalAdded > finalTotal && splitPayments[splitPayments.length - 1]?.method === 'EFECTIVO' && (
+                        <div style={{marginTop: '0.5rem', fontSize: '1.2rem', color: '#4CAF50', fontWeight: 'bold', textAlign: 'center'}}>
+                          Vuelto: L. {(totalAdded - finalTotal).toFixed(2)}
+                        </div>
+                      )}
+
+                      {canAddPayment && (
+                        <div style={{padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)'}}>
+                          <h4 style={{marginBottom: '0.5rem'}}>Agregar Pago</h4>
+                          <div className="form-group">
+                            <label>Método</label>
+                            <select className="input-field" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                              <option value="EFECTIVO">Efectivo</option>
+                              <option value="TRANSFERENCIA">Transferencia</option>
+                              <option value="CREDITO">Crédito (Cuenta Cliente)</option>
+                              {hasDelivery && <option value="PAGO_REPARTIDOR">Retenido por Repartidor</option>}
+                              {splitPayments.length === 0 && <option value="CONSUMO_PROPIO">Consumo Interno / Cortesía</option>}
+                            </select>
+                          </div>
+
+                          {paymentMethod === 'TRANSFERENCIA' && (
+                            <div className="form-group">
+                              <label>Banco de Destino</label>
+                              <select className="input-field" value={paymentBank} onChange={e => setPaymentBank(e.target.value)}>
+                                <option value="Bac Antony">Bac Antony</option>
+                                <option value="Bac Delmy">Bac Delmy</option>
+                                <option value="Bac Elmer">Bac Elmer</option>
+                                <option value="Banpais">Banpais</option>
+                                <option value="Atlantida">Atlantida</option>
+                                <option value="Ficohsa">Ficohsa</option>
+                                <option value="Davivienda">Davivienda</option>
+                                <option value="Occidente">Occidente</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {paymentMethod !== 'CONSUMO_PROPIO' && (
+                            <div className="form-group">
+                              <label>Monto a cobrar con {paymentMethod}</label>
+                              <input 
+                                type="number" 
+                                className="input-field" 
+                                value={currentPaymentAmount} 
+                                placeholder={`L. ${remaining.toFixed(2)}`}
+                                onChange={e => setCurrentPaymentAmount(e.target.value)} 
+                              />
+                              {paymentMethod === 'EFECTIVO' && Number(currentPaymentAmount) > remaining && (
+                                <div style={{marginTop: '0.5rem', fontSize: '1.2rem', color: '#4CAF50', fontWeight: 'bold', textAlign: 'center'}}>
+                                  Vuelto a entregar: L. {(Number(currentPaymentAmount) - remaining).toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          <button className="btn-secondary" style={{width: '100%', borderColor: 'var(--primary-color)', color: 'var(--primary-color)'}} onClick={handleAddPayment}>
+                            ➕ Confirmar
+                          </button>
+                        </div>
+                      )}
+                    </>
+
+                  <div className="form-actions" style={{marginTop: '2rem'}}>
+                    <button className="btn-secondary" onClick={() => {
+                      setPaymentModalOrder(null);
+                      setIsMultiplePayments(false);
+                    }}>Cancelar</button>
+                    {remaining === 0 && (
+                      <button 
+                        className="btn-primary" 
+                        style={{ padding: '1rem', fontSize: '1.2rem', flex: 2 }}
+                        onClick={() => handleConfirmPayment()}
+                      >
+                        ✅ Finalizar Cobro
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })()}
-            
-            <div className="form-group">
-              <label>Método de Pago</label>
-              <select className="input-field" value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value); setAmountReceived(''); }}>
-                <option value="EFECTIVO">Efectivo</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="CREDITO">Crédito (Cuenta Cliente)</option>
-                <option value="CONSUMO_PROPIO">Consumo Interno / Cortesía</option>
-              </select>
-            </div>
-
-            {paymentMethod === 'TRANSFERENCIA' && (
-              <div className="form-group">
-                <label>Banco de Destino</label>
-                <select className="input-field" value={paymentBank} onChange={e => setPaymentBank(e.target.value)}>
-                  <option value="Bac Antony">Bac Antony</option>
-                  <option value="Bac Delmy">Bac Delmy</option>
-                  <option value="Bac Elmer">Bac Elmer</option>
-                  <option value="Banpais">Banpais</option>
-                  <option value="Atlantida">Atlantida</option>
-                  <option value="Ficohsa">Ficohsa</option>
-                  <option value="Davivienda">Davivienda</option>
-                  <option value="Occidente">Occidente</option>
-                </select>
-                {paymentModalOrder.orderType === 'ENVIO_COBRADO' && (
-                  <>
-                    <div style={{marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', backgroundColor: 'rgba(246, 167, 75, 0.1)', borderRadius: '8px', border: '1px solid rgba(246, 167, 75, 0.3)'}}>
-                      <input 
-                        type="checkbox" 
-                        id="deliveryPaidByTransfer" 
-                        checked={deliveryPaidByTransfer} 
-                        onChange={e => setDeliveryPaidByTransfer(e.target.checked)} 
-                      />
-                      <label htmlFor="deliveryPaidByTransfer" style={{cursor: 'pointer', fontSize: '0.9rem', margin: 0}}>El cliente depositó/transfirió también el cobro de envío (L. {modalDeliveryFee})</label>
-                    </div>
-
-                  </>
-                )}
-              </div>
-            )}
-
-            {paymentMethod === 'EFECTIVO' && (
-              <div className="form-group">
-                <label>Monto Recibido L.</label>
-                <input type="number" className="input-field" value={amountReceived} onChange={e => setAmountReceived(e.target.value)} autoFocus />
-                {(() => {
-                  const hasDelivery = paymentModalOrder.orderType === 'ENVIO_COBRADO';
-                  let expectedToCollect = paymentModalOrder.total + (hasDelivery ? modalDeliveryFee : 0);
-                  if (hasDelivery) expectedToCollect = paymentModalOrder.total;
-
-                  return amountReceived && Number(amountReceived) >= expectedToCollect && (
-                    <div style={{marginTop: '0.5rem', fontSize: '1.2rem', color: '#4CAF50', fontWeight: 'bold', textAlign: 'center'}}>
-                      Vuelto: L. {(Number(amountReceived) - expectedToCollect).toFixed(2)}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            <div className="form-actions" style={{marginTop: '2rem'}}>
-              <button className="btn-secondary" onClick={() => setPaymentModalOrder(null)}>Cancelar</button>
-              <button className="btn-primary" onClick={handleConfirmPayment}>Confirmar Cobro</button>
-            </div>
           </div>
         </div>
       )}
+
       
       {unpaidWarningOrder && (
         <div className="modal-overlay" style={{zIndex: 120}}>
@@ -1494,6 +1645,8 @@ export default function POS() {
               <button className="btn-primary" style={{backgroundColor: '#FF9800'}} onClick={() => {
                 setPaymentMethod('EFECTIVO'); 
                 setAmountReceived(''); 
+                setSplitPayments(unpaidWarningOrder.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (unpaidWarningOrder.deliveryFee || 0), isAuto: true }] : []);
+                setCurrentPaymentAmount('');
                 setModalDeliveryFee(unpaidWarningOrder.deliveryFee || 0); 
                 setIncludeDeliveryInInvoice(true); 
                 setPaymentModalOrder(unpaidWarningOrder);

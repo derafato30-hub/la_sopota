@@ -102,46 +102,76 @@ export default function Gastos() {
     snapOrders.forEach(doc => {
       const o = doc.data();
       if (o.estadoCocina === 'CANCELADA' || o.estadoPago === 'CANCELADO' || o.estado === 'CANCELADA') return;
-
       if (o.estadoEntrega !== 'ENTREGADO' || o.estadoPago === 'PENDIENTE') {
         pending = true;
       }
-
       const food = o.foodTotal !== undefined ? o.foodTotal : (o.total - (o.deliveryFee || 0));
       
-      if (o.metodoPago === 'CONSUMO_PROPIO') {
+      let isConsumoTotal = o.metodoPago === 'CONSUMO_PROPIO' || (o.pagosMultiples && o.pagosMultiples.length === 1 && o.pagosMultiples[0].method === 'CONSUMO_PROPIO');
+      if (isConsumoTotal) {
          stats.consumoInterno = (stats.consumoInterno || 0) + food;
       } else {
          stats.ventaTotal += food;
       }
 
-      if (o.estadoPago === 'CREDITO') {
-        stats.creditoOtorgado += food;
-      } else if (o.metodoPago === 'EFECTIVO') {
-        if (o.orderType === 'ENVIO_COBRADO') {
-           stats.efectivoVentas += food; // Solo entra a caja el pago de comida (el repartidor se queda su parte)
-        } else {
-           stats.efectivoVentas += (o.total || 0); // Entra el total a caja
-        }
-      } else if (o.metodoPago === 'TRANSFERENCIA') {
-        let depositToBank = o.total || 0;
-        
-        if (o.orderType === 'ENVIO_COBRADO') {
-           if (o.deliveryPaidByTransfer) {
-              // El cliente depositó todo al banco (comida + envío)
-              stats.enviosTransferencia += (o.deliveryFee || 0);
-           } else {
-              // El cliente depositó SOLO la comida al banco
-              depositToBank = food;
-           }
-        }
-        
-        // Para el cuadre de "Ventas del Día", solo tomamos en cuenta la comida
-        stats.transferenciasVentas += food; 
-        
-        const bankName = o.banco || o.paymentBank;
-        if (bankName && stats.bancos[bankName] !== undefined) {
-          stats.bancos[bankName] += depositToBank; // El banco sí recibe el depósito completo si aplicaba
+      if (o.pagosMultiples && o.pagosMultiples.length > 0) {
+        let remainingDeliveryToAllocate = (o.orderType === 'ENVIO_COBRADO') ? (o.deliveryFee || 0) : 0;
+
+        o.pagosMultiples.forEach(p => {
+          let pAmt = p.amount;
+          if (p.method === 'PAGO_REPARTIDOR') {
+             remainingDeliveryToAllocate -= Math.min(pAmt, remainingDeliveryToAllocate);
+             return;
+          }
+          if (p.method === 'CONSUMO_PROPIO') {
+             if (!isConsumoTotal) stats.consumoInterno = (stats.consumoInterno || 0) + pAmt;
+             return;
+          }
+
+          let deliveryPortion = 0;
+          if (remainingDeliveryToAllocate > 0 && p.method === 'TRANSFERENCIA') {
+             deliveryPortion = Math.min(pAmt, remainingDeliveryToAllocate);
+             stats.enviosTransferencia += deliveryPortion;
+             remainingDeliveryToAllocate -= deliveryPortion;
+          }
+
+          let foodPortion = pAmt - deliveryPortion;
+
+          if (p.method === 'CREDITO') {
+            stats.creditoOtorgado += foodPortion;
+          } else if (p.method === 'EFECTIVO') {
+            stats.efectivoVentas += pAmt; 
+          } else if (p.method === 'TRANSFERENCIA') {
+            stats.transferenciasVentas += foodPortion; 
+            const bankName = p.bank;
+            if (bankName && stats.bancos[bankName] !== undefined) {
+              stats.bancos[bankName] += pAmt; 
+            }
+          }
+        });
+      } else {
+        if (o.estadoPago === 'CREDITO') {
+          stats.creditoOtorgado += food;
+        } else if (o.metodoPago === 'EFECTIVO') {
+          if (o.orderType === 'ENVIO_COBRADO') {
+             stats.efectivoVentas += food; 
+          } else {
+             stats.efectivoVentas += (o.total || 0); 
+          }
+        } else if (o.metodoPago === 'TRANSFERENCIA') {
+          let depositToBank = o.total || 0;
+          if (o.orderType === 'ENVIO_COBRADO') {
+             if (o.deliveryPaidByTransfer) {
+                stats.enviosTransferencia += (o.deliveryFee || 0);
+             } else {
+                depositToBank = food;
+             }
+          }
+          stats.transferenciasVentas += food; 
+          const bankName = o.banco || o.paymentBank;
+          if (bankName && stats.bancos[bankName] !== undefined) {
+            stats.bancos[bankName] += depositToBank;
+          }
         }
       }
     });

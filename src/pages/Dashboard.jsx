@@ -21,6 +21,23 @@ export default function Dashboard() {
   const [aiError, setAiError] = useState('');
 
   useEffect(() => {
+    // TEMPORARY SEED
+    const seedDB = async () => {
+      if (window.hasSeededDev) return;
+      window.hasSeededDev = true;
+      try {
+        const { addDoc, collection, getDocs } = await import('firebase/firestore');
+        const snap = await getDocs(collection(db, 'menu'));
+        if (snap.empty) {
+          console.log("Seeding dev DB...");
+          await addDoc(collection(db, 'menu'), { name: "Alitas 6pz", type: "alitas", price: 150, available: true, hasVariations: false });
+          await addDoc(collection(db, 'menu'), { name: "Tacos de Birria", type: "tacos", price: 120, available: true, hasVariations: false });
+          await addDoc(collection(db, 'menu'), { name: "Coca Cola", type: "bebida", price: 30, available: true, hasVariations: false });
+          console.log("Seeded!");
+        }
+      } catch(e) { console.error(e); }
+    };
+    seedDB();
     fetchStats();
   }, []);
 
