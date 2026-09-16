@@ -36,6 +36,7 @@ export default function POS() {
   const [isMultiplePayments, setIsMultiplePayments] = useState(false);
   const [currentPaymentAmount, setCurrentPaymentAmount] = useState('');
   const [modalDeliveryFee, setModalDeliveryFee] = useState(0);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [includeDeliveryInInvoice, setIncludeDeliveryInInvoice] = useState(true);
   const [deliveryPaidByTransfer, setDeliveryPaidByTransfer] = useState(true);
 
@@ -251,28 +252,13 @@ export default function POS() {
 
   const handleConfirmPayment = async (overrideSplitPayments = null) => {
     if (!paymentModalOrder) return;
+    if (isProcessingPayment) return;
+    setIsProcessingPayment(true);
     
     const hasDelivery = paymentModalOrder.orderType === 'ENVIO_COBRADO';
     const finalTotal = paymentModalOrder.total + (hasDelivery ? modalDeliveryFee : 0);
     
-    // Si NO estamos en modo múltiple, generamos el arreglo de splitPayments sobre la marcha.
     let effectiveSplitPayments = overrideSplitPayments || [...splitPayments];
-    if (!isMultiplePayments && !overrideSplitPayments) {
-       effectiveSplitPayments = splitPayments.filter(p => p.isAuto); // Retener auto (PAGO_REPARTIDOR)
-       const simpleRemaining = finalTotal - effectiveSplitPayments.reduce((acc, p) => acc + p.amount, 0);
-       
-       if (paymentMethod === 'CONSUMO_PROPIO') {
-          effectiveSplitPayments.push({ method: 'CONSUMO_PROPIO', amount: finalTotal, bank: null });
-       } else {
-          let amt = Number(currentPaymentAmount);
-          if (!currentPaymentAmount) amt = simpleRemaining; // Si no puso monto, asume exacto
-          
-          if (paymentMethod === 'EFECTIVO' && amt < simpleRemaining) {
-             return toast.error("El monto ingresado es menor al total.");
-          }
-          effectiveSplitPayments.push({ method: paymentMethod, amount: amt, bank: paymentMethod === 'TRANSFERENCIA' ? paymentBank : null });
-       }
-    }
 
     const totalAdded = effectiveSplitPayments.reduce((acc, p) => acc + p.amount, 0);
 
@@ -374,7 +360,7 @@ export default function POS() {
           createdAt: { toDate: () => new Date() }
         });
       }
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error(e); } finally { setIsProcessingPayment(false); }
   };
 
   const fetchData = async () => {
