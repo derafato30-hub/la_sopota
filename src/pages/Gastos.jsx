@@ -149,6 +149,9 @@ export default function Gastos() {
             }
           }
         });
+        if (o.vuelto && o.vuelto > 0) {
+          stats.efectivoVentas -= o.vuelto;
+        }
       } else {
         if (o.estadoPago === 'CREDITO') {
           stats.creditoOtorgado += food;
