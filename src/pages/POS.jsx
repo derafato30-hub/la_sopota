@@ -316,7 +316,7 @@ export default function POS() {
         deliveryFee: hasDelivery ? modalDeliveryFee : 0,
         includeDeliveryInInvoice,
         invoiceId,
-        deliveryPaidByTransfer: false 
+        deliveryPaidByTransfer: hasDelivery ? deliveryPaidByTransfer : false 
       };
       
       let vuelto = 0;
@@ -830,7 +830,7 @@ export default function POS() {
                   <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
                   <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (o.deliveryFee || 0), isAuto: true }] : []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -876,7 +876,7 @@ export default function POS() {
                     <button className="btn-primary" onClick={() => handleMarkDelivered(o)}>Entregar en Local</button>
                   )}
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (o.deliveryFee || 0), isAuto: true }] : []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -915,7 +915,7 @@ export default function POS() {
                   L. {o.total.toFixed(2)} | Pago: <strong style={{color: '#FF9800'}}>{o.estadoPago}</strong>
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (o.deliveryFee || 0), isAuto: true }] : []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
+                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
                   <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
                 </div>
@@ -1459,8 +1459,12 @@ export default function POS() {
               const invoiceTotal = baseTotal + (hasDelivery && includeDeliveryInInvoice ? modalDeliveryFee : 0);
               const finalTotal = baseTotal + (hasDelivery ? modalDeliveryFee : 0);
               
+              let expectedToCollect = baseTotal;
+              if (hasDelivery && deliveryPaidByTransfer) {
+                 expectedToCollect = finalTotal;
+              }
               const totalAdded = splitPayments.reduce((acc, p) => acc + p.amount, 0);
-              const remaining = Math.max(0, finalTotal - totalAdded);
+              const remaining = Math.max(0, expectedToCollect - totalAdded);
               const hasConsumo = splitPayments.some(p => p.method === 'CONSUMO_PROPIO');
               const canAddPayment = remaining > 0 && !hasConsumo;
 
@@ -1631,7 +1635,7 @@ export default function POS() {
               <button className="btn-primary" style={{backgroundColor: '#FF9800'}} onClick={() => {
                 setPaymentMethod('EFECTIVO'); 
                 setAmountReceived(''); 
-                setSplitPayments(unpaidWarningOrder.orderType === 'ENVIO_COBRADO' ? [{ method: 'PAGO_REPARTIDOR', amount: (unpaidWarningOrder.deliveryFee || 0), isAuto: true }] : []);
+                setSplitPayments([]);
                 setCurrentPaymentAmount('');
                 setModalDeliveryFee(unpaidWarningOrder.deliveryFee || 0); 
                 setIncludeDeliveryInInvoice(true); 

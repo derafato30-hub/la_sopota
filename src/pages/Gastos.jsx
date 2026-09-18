@@ -115,7 +115,7 @@ export default function Gastos() {
       }
 
       if (o.pagosMultiples && o.pagosMultiples.length > 0) {
-        let remainingDeliveryToAllocate = (o.orderType === 'ENVIO_COBRADO') ? (o.deliveryFee || 0) : 0;
+        let remainingDeliveryToAllocate = (o.orderType === 'ENVIO_COBRADO' && o.deliveryPaidByTransfer) ? (o.deliveryFee || 0) : 0;
 
         o.pagosMultiples.forEach(p => {
           let pAmt = p.amount;
