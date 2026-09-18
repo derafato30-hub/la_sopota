@@ -28,8 +28,6 @@ export default function POS() {
   // Payment State
   const [paymentModalOrder, setPaymentModalOrder] = useState(null);
   const [unpaidWarningOrder, setUnpaidWarningOrder] = useState(null);
-  const [showDriverPaymentPrompt, setShowDriverPaymentPrompt] = useState(false);
-  const [driverPaymentAmount, setDriverPaymentAmount] = useState('');
   const [summaryOrder, setSummaryOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [paymentBank, setPaymentBank] = useState('Bac Antony');
@@ -764,83 +762,899 @@ export default function POS() {
         <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
           <h3 style={{borderBottom: '2px solid var(--text-secondary)', paddingBottom: '0.5rem', marginBottom: '1rem'}}>📝 Borradores</h3>
           <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-              {!showDriverPaymentPrompt ? (
-                <>
-                  <button className="btn-secondary" onClick={() => {
-                    if (unpaidWarningOrder.orderType === 'ENVIO_COBRADO') {
-                      setShowDriverPaymentPrompt(true);
-                    } else {
-                      updateOrderStatus(unpaidWarningOrder.id, 'estadoEntrega', 'ENTREGADO');
-                      setUnpaidWarningOrder(null);
-                    }
-                  }}>Dejar como Pendiente de Pago</button>
-                  <button className="btn-primary" style={{backgroundColor: '#FF9800'}} onClick={() => {
-                    setPaymentMethod('EFECTIVO'); 
-                    setAmountReceived(''); 
-                    setSplitPayments([]);
-                    setCurrentPaymentAmount('');
-                    setModalDeliveryFee(unpaidWarningOrder.deliveryFee || 0); 
-                    setIncludeDeliveryInInvoice(true); 
-                    setPaymentModalOrder(unpaidWarningOrder);
-                  
-                    setUnpaidWarningOrder(null);
-                  }}>Cobrar Ahora</button>
-                </>
-              ) : (
-                <div style={{textAlign: 'left', padding: '1rem', backgroundColor: 'rgba(246, 167, 75, 0.1)', borderRadius: '8px'}}>
-                  <p style={{marginBottom: '0.5rem', fontSize: '0.9rem'}}>¿Le pagaste el envío al repartidor de la caja?</p>
-                  <input 
-                    type="number" 
-                    className="input-field" 
-                    placeholder="Monto pagado al repartidor" 
-                    value={driverPaymentAmount}
-                    onChange={e => setDriverPaymentAmount(e.target.value)}
-                    style={{marginBottom: '1rem'}}
-                  />
-                  <div style={{display: 'flex', gap: '0.5rem'}}>
-                    <button className="btn-primary" style={{flex: 1}} onClick={async () => {
-                      const amount = Number(driverPaymentAmount);
-                      if (amount > 0) {
-                        try {
-                          await addDoc(collection(db, 'expenses'), {
-                            reason: `Pago a repartidor (Orden ${unpaidWarningOrder.clientName})`,
-                            amount: amount,
-                            date: new Date().toISOString().split('T')[0],
-                            createdAt: serverTimestamp(),
-                            isThirdParty: true,
-                            invoiceNumber: '',
-                            sellerName: unpaidWarningOrder.clientName
-                          });
-                          await updateDoc(doc(db, 'orders', unpaidWarningOrder.id), {
-                            deliveryFee: amount,
-                            deliveryPaidByTransfer: true,
-                            includeDeliveryInInvoice: true,
-                            estadoEntrega: 'ENTREGADO'
-                          });
-                          toast.success('Envío pagado y sumado a la deuda del cliente');
-                        } catch (e) {
-                          toast.error('Error al registrar el pago al repartidor');
-                        }
-                      } else {
-                        await updateOrderStatus(unpaidWarningOrder.id, 'estadoEntrega', 'ENTREGADO');
-                      }
-                      setShowDriverPaymentPrompt(false);
-                      setDriverPaymentAmount('');
-                      setUnpaidWarningOrder(null);
-                    }}>Confirmar</button>
-                    <button className="btn-secondary" style={{flex: 1}} onClick={() => {
-                      updateOrderStatus(unpaidWarningOrder.id, 'estadoEntrega', 'ENTREGADO');
-                      setShowDriverPaymentPrompt(false);
-                      setDriverPaymentAmount('');
-                      setUnpaidWarningOrder(null);
-                    }}>No pagué nada</button>
+            {activeOrders.filter(o => o.estadoCocina === 'BORRADOR').map(o => (
+              <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--text-secondary)'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                    <button className="icon-btn" style={{padding: '2px', color: '#ff9800'}} title="Recordar a Cocina" onClick={() => handlePingOrder(o.id)}>
+                      <Bell size={16} />
+                    </button>
+                  </div>
+                  <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
+                    <span className="badge">{o.orderType}</span>
+                    {o.deliveryTime && <span className="badge" style={{backgroundColor: '#673AB7', fontSize: '0.7rem', marginTop: '4px'}}>🕒 Entrega: {o.deliveryTime}</span>}
+                    {o.scheduledTime && <span className="badge" style={{backgroundColor: '#FF5722', fontSize: '0.7rem', marginTop: '4px'}}>⏱ Cocina: {o.scheduledTime}</span>}
                   </div>
                 </div>
-              )}
+                <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
+                  L. {o.total.toFixed(2)} - {o.items?.length || 0} items
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
+                  <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
+                  <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'PENDIENTE')}>Mandar a Cocina</button>
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className="btn-secondary" style={{flex: 1, padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
+                    <button className="btn-secondary del-btn" style={{flex: 1, padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {activeOrders.filter(o => o.estadoCocina === 'BORRADOR').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>No hay borradores.</p>}
+          </div>
+        </div>
+
+        {/* COLUMNA 2: En Cocina */}
+        <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
+          <h3 style={{borderBottom: '2px solid var(--primary-color)', paddingBottom: '0.5rem', marginBottom: '1rem'}}>🔥 En Cocina</h3>
+          <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+            {activeOrders.filter(o => o.estadoCocina === 'PENDIENTE').map(o => (
+              <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--primary-color)'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                    <button className="icon-btn" style={{padding: '2px', color: '#ff9800'}} title="Recordar a Cocina" onClick={() => handlePingOrder(o.id)}>
+                      <Bell size={16} />
+                    </button>
+                  </div>
+                  <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
+                    <span className="badge">{o.orderType}</span>
+                    {o.deliveryTime && <span className="badge" style={{backgroundColor: '#673AB7', fontSize: '0.7rem', marginTop: '4px'}}>🕒 Entrega: {o.deliveryTime}</span>}
+                    {o.scheduledTime && <span className="badge" style={{backgroundColor: '#FF5722', fontSize: '0.7rem', marginTop: '4px'}}>⏱ Cocina: {o.scheduledTime}</span>}
+                  </div>
+                </div>
+                <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
+                  L. {o.total.toFixed(2)} - {o.items?.length || 0} items
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
+                  <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
+                  <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
+                  {o.estadoPago === 'PENDIENTE' ? (
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                  ) : (
+                    <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
+                  )}
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className="btn-secondary" style={{flex: 1, padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
+                    <button className="btn-secondary del-btn" style={{flex: 1, padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {activeOrders.filter(o => o.estadoCocina === 'PENDIENTE').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>No hay órdenes en cocina.</p>}
+          </div>
+        </div>
+
+        {/* COLUMNA 3: Listos (Para entregar o Enviar a ruta) */}
+        <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
+          <h3 style={{borderBottom: '2px solid #FF9800', paddingBottom: '0.5rem', marginBottom: '1rem'}}>✅ Listos</h3>
+          <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+            {activeOrders.filter(o => o.estadoCocina === 'LISTO' && o.estadoEntrega === 'EN_LOCAL').map(o => (
+              <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #FF9800'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                    <button className="icon-btn" style={{padding: '2px', color: '#ff9800'}} title="Recordar a Cocina" onClick={() => handlePingOrder(o.id)}>
+                      <Bell size={16} />
+                    </button>
+                  </div>
+                  <span className="badge" style={{backgroundColor: '#FF9800', color: 'black'}}>{o.orderType}</span>
+                </div>
+                <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
+                  L. {o.total.toFixed(2)} | Pago: <strong style={{color: o.estadoPago === 'PENDIENTE' ? '#FF9800' : '#4CAF50'}}>{o.estadoPago}</strong>
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
+                  <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
+                  {o.orderType.includes('ENVIO') ? (
+                    <button className="btn-secondary" onClick={() => { setDispatchOrder(o); setDriverName(''); setDriverPhone(''); setPayDriverFromRegister(true); setShowDispatchModal(true); }}>Enviar en Ruta</button>
+                  ) : (
+                    <button className="btn-primary" onClick={() => handleMarkDelivered(o)}>Entregar en Local</button>
+                  )}
+                  {o.estadoPago === 'PENDIENTE' ? (
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                  ) : (
+                    <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
+                  )}
+                  <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className="btn-secondary" style={{flex: 1, padding: '0.4rem'}} onClick={() => handleEditOrder(o)} title="Editar"><FileEdit size={16}/></button>
+                    <button className="btn-secondary del-btn" style={{flex: 1, padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {activeOrders.filter(o => o.estadoCocina === 'LISTO' && o.estadoEntrega === 'EN_LOCAL').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>No hay órdenes listas en local.</p>}
+          </div>
+        </div>
+
+        {/* COLUMNA 4: Pendientes de Pago */}
+        <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
+          <h3 style={{borderBottom: '2px solid #FF9800', paddingBottom: '0.5rem', marginBottom: '1rem'}}>⏳ Pendientes de Pago</h3>
+          <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+            {activeOrders.filter(o => o.estadoPago === 'PENDIENTE' && o.estadoEntrega === 'ENTREGADO').map(o => (
+              <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #FF9800'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: o.estadoEntrega === 'ENTREGADO' ? 'line-through' : 'none'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                  </div>
+                  <span className="badge" style={{backgroundColor: '#FF9800', color: 'white'}}>{o.orderType}</span>
+                </div>
+                {o.driverName && (
+                  <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem'}}>🛵 {o.driverName}</div>
+                )}
+                <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
+                  L. {o.total.toFixed(2)} | Pago: <strong style={{color: '#FF9800'}}>{o.estadoPago}</strong>
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
+                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
+                  <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
+                  <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
+                </div>
+              </div>
+            ))}
+            {activeOrders.filter(o => o.estadoPago === 'PENDIENTE' && o.estadoEntrega === 'ENTREGADO').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>No hay órdenes pendientes de pago.</p>}
+          </div>
+        </div>
+
+        {/* COLUMNA 5: Entregados Hoy */}
+        <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', opacity: 0.8}}>
+          <h3 style={{borderBottom: '2px solid #4CAF50', paddingBottom: '0.5rem', marginBottom: '1rem'}}>✅ Finalizados Hoy</h3>
+          <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+            {activeOrders.filter(o => o.estadoEntrega === 'ENTREGADO' && (o.estadoPago === 'PAGADO' || o.estadoPago === 'CREDITO' || o.estadoPago === 'CONSUMO_PROPIO')).map(o => (
+              <div key={o.id} style={{backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #4CAF50', opacity: 0.7}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
+                    <strong style={{textDecoration: 'line-through'}}>{o.clientName}</strong>
+                    {o.clienteId && (
+                       <button className="icon-btn" style={{padding: '2px', color: 'var(--text-secondary)'}} title="Información del Cliente" onClick={() => openClientInfoModal(o.clienteId)}>
+                         <UserPlus size={16} />
+                       </button>
+                    )}
+                  </div>
+                  <span className="badge" style={{backgroundColor: '#4CAF50', color: 'white'}}>{o.orderType}</span>
+                </div>
+                <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.5rem 0'}}>
+                  L. {o.total.toFixed(2)} | Pago: <strong>{o.estadoPago}</strong>
+                </div>
+                {o.invoiceId && <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>Fac: {o.invoiceId}</div>}
+              </div>
+            ))}
+            {activeOrders.filter(o => o.estadoEntrega === 'ENTREGADO').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>Sin entregas hoy.</p>}
+          </div>
+        </div>
+
+      </div>
+
+      {/* MODAL / DRAWER DE NUEVA ORDEN */}
+      {isCreatingOrder && (
+        <div className="modal-overlay" style={{backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', justifyContent: 'flex-end'}}>
+          <div className="modal-card" style={{width: '95%', maxWidth: '1200px', height: '95vh', margin: '2.5vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden'}}>
+            
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)'}}>
+              <h2 style={{margin: 0}}>📝 {editingOrderId ? 'Editando Orden' : 'Armar Nueva Orden'}</h2>
+              <button className="icon-btn" style={{fontSize: '1.5rem'}} onClick={() => {
+                setIsCreatingOrder(false);
+                setEditingOrderId(null);
+                setCart([]);
+                setSelectedCustomer(null);
+              }}>✕</button>
             </div>
-            {!showDriverPaymentPrompt && (
-              <button className="btn-secondary" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setUnpaidWarningOrder(null)}>Cancelar</button>
+
+            <div className="pos-container" style={{flex: 1, overflow: 'hidden'}}>
+              
+              {/* PESTAÑAS MÓVILES */}
+              <div className="mobile-tabs-container">
+                <button 
+                  className={`mobile-tab-btn ${mobileTab === 'menu' ? 'active' : ''}`}
+                  onClick={() => setMobileTab('menu')}
+                >
+                  Menú
+                </button>
+                <button 
+                  className={`mobile-tab-btn ${mobileTab === 'ticket' ? 'active' : ''}`}
+                  onClick={() => setMobileTab('ticket')}
+                >
+                  Ticket ({cart.reduce((sum, item) => sum + item.qty, 0)})
+                </button>
+              </div>
+
+              {/* SECCIÓN IZQUIERDA: MENÚ */}
+      <div className={`pos-menu-section ${mobileTab !== 'menu' ? 'mobile-hidden' : ''}`}>
+        <div className="pos-header" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
+          <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '1rem'}}>
+            <h2 className="hide-title-mobile">Menú</h2>
+            {dailyMenuConfig && (
+              <div style={{display: 'flex', gap: '0.5rem'}}>
+                <button className="btn-primary highlight-btn" onClick={openDailyMenuModal}>
+                  🍲 Plato del Día
+                </button>
+                <button className="btn-primary highlight-btn" style={{backgroundColor: '#FF9800'}} onClick={() => setShowSopaModal(true)}>
+                  🥣 Vender Sopa
+                </button>
+              </div>
             )}
+          </div>
+
+          {outOfStockItems.length > 0 && (
+            <div style={{width: '100%', marginBottom: '1rem', padding: '0.5rem 0.75rem', backgroundColor: 'rgba(255, 82, 82, 0.1)', border: '1px solid #FF5252', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.5rem', overflowX: 'auto'}}>
+              <strong style={{color: '#FF5252', whiteSpace: 'nowrap', fontSize: '0.9rem'}}>⚠️ Agotados:</strong>
+              <div style={{display: 'flex', gap: '0.4rem'}}>
+                {outOfStockItems.map(item => (
+                  <span key={item.id} style={{fontSize: '0.8rem', color: '#FF5252', backgroundColor: 'rgba(255, 82, 82, 0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', whiteSpace: 'nowrap'}}>
+                    {item.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem', width: '100%'}}>
+            <div style={{flex: 1, position: 'relative'}}>
+              <Search size={18} style={{position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)'}} />
+              <input 
+                type="text" 
+                placeholder="Buscar platillo por nombre..." 
+                value={menuSearchTerm}
+                onChange={(e) => setMenuSearchTerm(e.target.value)}
+                style={{width: '100%', padding: '0.6rem 1rem 0.6rem 2.2rem', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)'}}
+              />
+            </div>
+          </div>
+
+          <div style={{display: 'flex', gap: '0.5rem', overflowX: 'auto', width: '100%', paddingBottom: '0.5rem'}}>
+            {['Todos', 'platillo', 'pollo_frito', 'tacos', 'alitas', 'combo', 'bebida', 'extra'].map(cat => (
+              <button 
+                key={cat}
+                className={`btn-secondary ${activeCategoryFilter === cat ? 'btn-primary' : ''}`}
+                style={{padding: '0.4rem 0.8rem', fontSize: '0.85rem', textTransform: 'capitalize', whiteSpace: 'nowrap'}}
+                onClick={() => setActiveCategoryFilter(cat)}
+              >
+                {cat.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pos-grid">
+          {items.filter(item => {
+            const matchesCategory = activeCategoryFilter === 'Todos' || item.type === activeCategoryFilter;
+            const matchesSearch = item.name.toLowerCase().includes(menuSearchTerm.toLowerCase());
+            return matchesCategory && matchesSearch;
+          }).map(item => {
+            let stockDisplay = null;
+            if (item.type === 'sopa' || item.name.toLowerCase().includes('sopa')) {
+               if (dailyMenuConfig && dailyMenuConfig.sopasInventario && dailyMenuConfig.sopasInventario[item.id] !== undefined) {
+                  const total = dailyMenuConfig.sopasInventario[item.id];
+                  const sold = soldSoups[item.id] || 0;
+                  const available = total - sold;
+                  stockDisplay = <span className="badge" style={{backgroundColor: available <= 3 ? '#FF5252' : 'var(--primary-color)', fontSize: '0.75rem', padding: '0.2rem 0.4rem'}}>Quedan {available}</span>;
+               }
+            }
+
+            return (
+              <div key={item.id} className="pos-item-card card" onClick={() => handleItemClick(item)}>
+                <h3 style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+                  {item.name}
+                  {stockDisplay && <div style={{marginTop: '0.25rem'}}>{stockDisplay}</div>}
+                </h3>
+                {item.hasVariations ? (
+                   <p className="item-price" style={{fontSize: '0.85rem'}}>Varios precios</p>
+                ) : (
+                   <p className="item-price">L. {item.price.toFixed(2)}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* SECCIÓN DERECHA: TICKET/CARRITO */}
+      <div className={`pos-ticket-section card ${mobileTab !== 'ticket' ? 'mobile-hidden' : ''}`}>
+        <div className="ticket-header hide-title-mobile">
+          <h2><ShoppingCart size={24} /> Ticket</h2>
+        </div>
+
+        <div className="client-info" style={{padding: '0.5rem 1rem', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)'}}>
+           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+             <span style={{color: 'var(--text-secondary)', fontSize: '0.9rem'}}>Cliente seleccionado:</span>
+             <strong style={{color: selectedCustomer ? 'var(--text-primary)' : 'var(--accent-color)'}}>
+               {selectedCustomer ? `👤 ${selectedCustomer.name}` : 'Ninguno (Asignar al Procesar)'}
+             </strong>
+           </div>
+        </div>
+
+        <div className="ticket-items">
+          {cart.length === 0 && <p className="empty-cart">No hay artículos seleccionados</p>}
+          {cart.map(item => {
+            const extraCost = (item.addedExtras || []).reduce((sum, e) => sum + e.price, 0);
+            return (
+              <div key={item.cartId} className="ticket-item">
+                <div className="ticket-item-info">
+                  <strong>{item.name}</strong>
+                  <span>L. {((item.price + extraCost) * item.qty).toFixed(2)} {item.qty > 1 && <small style={{color:'var(--text-secondary)'}}> (L.{(item.price + extraCost).toFixed(2)} c/u)</small>}</span>
+                  {item.comment && <div style={{fontSize: '0.8rem', color: 'var(--accent-color)', fontStyle: 'italic'}}>"{item.comment}"</div>}
+                  {item.addedExtras && item.addedExtras.length > 0 && (
+                    <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>
+                      + {item.addedExtras.map(e => `${e.name} (L.${e.price})`).join(', ')}
+                    </div>
+                  )}
+                </div>
+                <div className="ticket-item-actions" style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.25rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', padding: '2px'}}>
+                    <button className="icon-btn" style={{padding: '2px 6px', fontSize: '1rem'}} onClick={() => updateCartItemQty(item.cartId, -1)} disabled={item.qty <= 1}>-</button>
+                    <span style={{fontWeight: 'bold', width: '20px', textAlign: 'center'}}>{item.qty}</span>
+                    <button className="icon-btn" style={{padding: '2px 6px', fontSize: '1rem'}} onClick={() => updateCartItemQty(item.cartId, 1)}>+</button>
+                  </div>
+                  <button className="icon-btn" title="Editar/Comentario" onClick={() => openEditCartItem(item)}><FileEdit size={16}/></button>
+                  <button className="icon-btn del-btn" onClick={() => removeFromCart(item.cartId)}>✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="ticket-footer">
+          <div className="ticket-totals">
+            <h3>Subtotal Productos: <span>L. {subtotalItems.toFixed(2)}</span></h3>
+            <h2 className="total">Total: <span>L. {total.toFixed(2)}</span></h2>
+          </div>
+          
+          <div style={{display: 'flex', gap: '0.5rem', marginTop: '1rem'}}>
+            <button className="btn-primary send-btn" onClick={() => {
+              if (cart.length === 0) return toast.error('El carrito está vacío');
+              setShowCheckoutModal(true);
+            }}>
+              Procesar Pedido ➔
+            </button>
+          </div>
+          {editingOrderId && (
+            <button className="btn-secondary" style={{width: '100%', marginTop: '0.5rem'}} onClick={() => {
+              setEditingOrderId(null);
+              setCart([]);
+              setSelectedCustomer(null);
+            }}>Cancelar Edición</button>
+          )}
+        </div>
+      </div>
+
+      {showSopaModal && dailyMenuData && (
+        <div className="modal-overlay">
+          <div className="modal-card card" style={{maxWidth: '600px'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+              <h2>🥣 Sopas del Día</h2>
+              <button className="icon-btn" onClick={() => setShowSopaModal(false)}>✕</button>
+            </div>
+            
+            <div className="pos-grid">
+              {dailyMenuData.sopas.map(item => {
+                const total = (dailyMenuConfig.sopasInventario || {})[item.id] || 0;
+                const sold = soldSoups[item.id] || 0;
+                const available = total - sold;
+                const stockDisplay = <span className="badge" style={{backgroundColor: available <= 3 ? '#FF5252' : 'var(--primary-color)', fontSize: '0.75rem', padding: '0.2rem 0.4rem'}}>Quedan {available}</span>;
+
+                return (
+                  <div key={item.id} className="pos-item-card card" onClick={() => { addToCartDirect(item); setShowSopaModal(false); }}>
+                    <h3 style={{display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
+                      {item.name}
+                      <div style={{marginTop: '0.25rem'}}>{stockDisplay}</div>
+                    </h3>
+                    <p className="item-price">L. {item.price.toFixed(2)}</p>
+                  </div>
+                );
+              })}
+              {dailyMenuData.sopas.length === 0 && <p style={{gridColumn: '1 / -1', color: 'var(--text-secondary)'}}>No hay sopas configuradas para hoy.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVariationModal && selectedItem && (
+        <div className="modal-overlay" style={{padding: '1rem'}}>
+          <div className="modal-card card" style={{maxWidth: '500px', maxHeight: '95vh', overflowY: 'auto', display: 'flex', flexDirection: 'column'}}>
+            <h2>Configurar: {selectedItem.name}</h2>
+            <div style={{overflowY: 'auto', flex: 1, paddingRight: '0.5rem', marginTop: '1rem'}}>
+            
+            {selectedItem.hasVariations && selectedItem.type !== 'alitas' && (
+              <div style={{marginTop: '1rem'}}>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Añadir Variaciones (Cantidades):</h3>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                  {selectedItem.variations.map(v => {
+                    const qty = variationQtys[v.id] || 0;
+                    return (
+                      <div key={v.id} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: qty > 0 ? '1px solid var(--accent-color)' : '1px solid transparent'}}>
+                        <div style={{display: 'flex', flexDirection: 'column'}}>
+                          <span style={{fontSize: '1.1rem'}}>{v.name}</span>
+                          <strong style={{color: 'var(--accent-color)', fontSize: '1.1rem'}}>L. {v.price}</strong>
+                        </div>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                           <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.2rem'}} onClick={() => setVariationQtys({...variationQtys, [v.id]: Math.max(0, qty - 1)})}>-</button>
+                           <span style={{fontWeight: 'bold', fontSize: '1.4rem', minWidth: '30px', textAlign: 'center'}}>{qty}</span>
+                           <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.2rem'}} onClick={() => setVariationQtys({...variationQtys, [v.id]: qty + 1})}>+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {selectedItem.hasVariations && selectedItem.type === 'alitas' && alitasStep === 1 && (
+              <div style={{marginTop: '1rem'}}>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Selecciona el Tamaño:</h3>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                  {selectedItem.variations.map(v => (
+                    <div key={v.id} onClick={() => { setSelectedVariation(v); setSelectedSauces([]); setAlitasStep(2); }} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid transparent', cursor: 'pointer'}}>
+                      <div style={{display: 'flex', flexDirection: 'column'}}>
+                        <span style={{fontSize: '1.1rem'}}>{v.name}</span>
+                        <strong style={{color: 'var(--primary-color)', fontSize: '1.1rem'}}>L. {v.price}</strong>
+                      </div>
+                      <div style={{color: 'var(--text-secondary)'}}>➔</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {selectedItem.type === 'alitas' && alitasStep === 2 && (
+              <div style={{marginTop: '1rem'}}>
+                <button className="btn-secondary" style={{marginBottom: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.9rem'}} onClick={() => setAlitasStep(1)}>← Volver a Tamaños</button>
+                <div style={{padding: '0.75rem', backgroundColor: 'rgba(var(--primary-color-rgb), 0.1)', borderRadius: '8px', border: '1px solid var(--primary-color)', marginBottom: '1rem'}}>
+                  <strong style={{color: 'var(--primary-color)', fontSize: '1.1rem'}}>{selectedVariation?.name}</strong>
+                </div>
+
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>
+                  Elige Salsas (Max {
+                    (() => {
+                      const n = ((selectedVariation?.name || '') + ' ' + (selectedItem?.name || '')).toLowerCase();
+                      if (n.includes('24')) return 4;
+                      if (n.includes('18')) return 3;
+                      if (n.includes('8') || n.includes('12')) return 2;
+                      if (n.includes('6')) return 1;
+                      return 1;
+                    })()
+                  }):
+                </h3>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem'}}>
+                  {salsasDisponibles.map(s => (
+                    <label key={s.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', cursor: 'pointer'}}>
+                      <input 
+                        type="checkbox" 
+                        checked={!!selectedSauces.find(x => x.id === s.id)}
+                        onChange={() => toggleSauce(s)}
+                      />
+                      <span>{s.name}</span>
+                    </label>
+                  ))}
+                  {salsasDisponibles.length === 0 && <p style={{gridColumn: '1 / -1', fontSize: '0.9rem'}}>No hay salsas disponibles.</p>}
+                </div>
+              </div>
+            )}
+            
+            {(!selectedItem.hasVariations || (selectedItem.type === 'alitas' && alitasStep === 2)) && (
+              <div style={{marginTop: '1.5rem'}}>
+                <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>{selectedItem.type === 'alitas' ? 'Cantidad de Órdenes:' : 'Cantidad:'}</h3>
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(Math.max(1, modalGlobalQty - 1))}>-</button>
+                  <span style={{fontWeight: 'bold', fontSize: '1.5rem', minWidth: '40px', textAlign: 'center'}}>{modalGlobalQty}</span>
+                  <button className="icon-btn" style={{padding: '0.5rem 1rem', fontSize: '1.5rem'}} onClick={() => setModalGlobalQty(modalGlobalQty + 1)}>+</button>
+                </div>
+              </div>
+            )}
+
+            </div>
+            {selectedItem.type === 'alitas' ? (
+              <div style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                {alitasStep === 1 ? (
+                  <button className="btn-secondary" onClick={() => setShowVariationModal(false)}>Cancelar</button>
+                ) : (
+                  <>
+                    <button className="btn-primary" onClick={() => handleConfirmVariation(false)}>Añadir al Ticket y Terminar</button>
+                    <button className="btn-secondary" onClick={() => handleConfirmVariation(true)}>Añadir y Pedir Más Alitas</button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="form-actions" style={{marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)'}}>
+                <button className="btn-secondary" onClick={() => setShowVariationModal(false)}>Cancelar</button>
+                <button className="btn-primary" onClick={handleConfirmVariation}>Confirmar y Añadir</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {editingCartItem && (
+        <div className="modal-overlay">
+          <div className="modal-card card" style={{maxWidth: '450px'}}>
+            <h2>Personalizar: {editingCartItem.name}</h2>
+            
+            <div className="form-group" style={{marginTop: '1rem'}}>
+              <label>Precio Manual (L.):</label>
+              <input type="number" step="0.01" className="input-field" value={cartItemPrice} onChange={e => setCartItemPrice(e.target.value)} />
+            </div>
+
+            <div className="form-group">
+              <label>Comentario para Cocina (ej. "Sin cebolla", "Para llevar")</label>
+              <input type="text" className="input-field" value={cartItemComment} onChange={e => setCartItemComment(e.target.value)} placeholder="Opcional..." />
+            </div>
+
+            <div style={{marginTop: '1.5rem'}}>
+              <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-secondary)'}}>Agregar Extras:</h3>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto'}}>
+                {availableExtras.map(extra => (
+                  <label key={extra.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', cursor: 'pointer'}}>
+                    <input 
+                      type="checkbox" 
+                      checked={!!cartItemExtras.find(x => x.id === extra.id)}
+                      onChange={() => toggleCartItemExtra(extra)}
+                    />
+                    <span style={{flex: 1}}>{extra.name}</span>
+                    <strong style={{color: 'var(--accent-color)'}}>+ L. {extra.price}</strong>
+                  </label>
+                ))}
+                {availableExtras.length === 0 && <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)'}}>No hay extras configurados en el sistema.</p>}
+              </div>
+            </div>
+
+            <div className="form-actions" style={{marginTop: '2rem'}}>
+              <button className="btn-secondary" onClick={() => setEditingCartItem(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={handleSaveCartItemEdits}>Guardar Cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDailyMenuModal && dailyMenuConfig && (
+        <div className="modal-overlay" style={{zIndex: 110}}>
+          <div className="modal-card card" style={{maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto'}}>
+            <h2 style={{borderBottom: '2px solid var(--accent-color)', paddingBottom: '0.5rem', marginBottom: '1rem'}}>🍽️ Armar Plato del Día</h2>
+            
+            <div style={{display: 'flex', gap: '1rem', marginBottom: '1.5rem'}}>
+              <label style={{flex: 1, display: 'flex', flexDirection: 'column', padding: '1rem', backgroundColor: dmSize === 'COMPLETO' ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.05)', border: dmSize === 'COMPLETO' ? '2px solid var(--accent-color)' : '2px solid transparent', borderRadius: '8px', cursor: 'pointer', textAlign: 'center'}}>
+                <input type="radio" name="dmsize" checked={dmSize === 'COMPLETO'} onChange={() => handleSelectDmSize('COMPLETO')} style={{display: 'none'}} />
+                <strong style={{fontSize: '1.2rem', color: dmSize === 'COMPLETO' ? 'var(--accent-color)' : 'inherit'}}>COMPLETO</strong>
+                <span style={{fontSize: '1.1rem', fontWeight: 'bold'}}>L. {dailyMenuConfig.precioCompleto}</span>
+                <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>{dailyMenuConfig.acompanantesCompleto} Acompañantes + {dailyMenuConfig.tortillasCompleto} Tortillas</span>
+              </label>
+
+              <label style={{flex: 1, display: 'flex', flexDirection: 'column', padding: '1rem', backgroundColor: dmSize === 'MEDIO' ? 'rgba(255,152,0,0.1)' : 'rgba(255,255,255,0.05)', border: dmSize === 'MEDIO' ? '2px solid var(--accent-color)' : '2px solid transparent', borderRadius: '8px', cursor: 'pointer', textAlign: 'center'}}>
+                <input type="radio" name="dmsize" checked={dmSize === 'MEDIO'} onChange={() => handleSelectDmSize('MEDIO')} style={{display: 'none'}} />
+                <strong style={{fontSize: '1.2rem', color: dmSize === 'MEDIO' ? 'var(--accent-color)' : 'inherit'}}>MEDIO (1/2)</strong>
+                <span style={{fontSize: '1.1rem', fontWeight: 'bold'}}>L. {dailyMenuConfig.precioMedio}</span>
+                <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>{dailyMenuConfig.acompanantesMedio} Acompañantes + {dailyMenuConfig.tortillasMedio} Tortillas</span>
+              </label>
+            </div>
+
+            <div style={{marginBottom: '1.5rem'}}>
+              <h3 style={{fontSize: '1.1rem', marginBottom: '0.5rem'}}>1. Selecciona la Carne (Elige 1)</h3>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem'}}>
+                {dailyMenuData.carnes.map(carne => {
+                  let stockDisplay = null;
+                  if (dailyMenuConfig && dailyMenuConfig.carnesInventario && dailyMenuConfig.carnesInventario[carne.id] !== undefined) {
+                      const totalMedios = dailyMenuConfig.carnesInventario[carne.id];
+                      const soldMedios = soldCarnes[carne.id] || 0;
+                      const availableMedios = totalMedios - soldMedios;
+                      const availableCompletos = availableMedios / 1.5;
+                      
+                      const badgeColor = availableCompletos <= 2 ? '#FF5252' : 'var(--primary-color)';
+                      stockDisplay = (
+                         <div style={{fontSize: '0.75rem', color: badgeColor, fontWeight: 'bold', marginTop: '0.2rem', marginLeft: '1.5rem'}}>
+                           Quedan {Number.isInteger(availableCompletos) ? availableCompletos : availableCompletos.toFixed(1)} Comp. o {Number.isInteger(availableMedios) ? availableMedios : availableMedios.toFixed(1)} Med.
+                         </div>
+                      );
+                  }
+
+                  return (
+                    <label key={carne.id} style={{display: 'flex', flexDirection: 'column', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', cursor: 'pointer', border: dmSelectedCarne?.id === carne.id ? '1px solid var(--accent-color)' : '1px solid transparent'}}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                        <input type="radio" name="dmcarne" checked={dmSelectedCarne?.id === carne.id} onChange={() => setDmSelectedCarne(carne)} />
+                        <span>{carne.name}</span>
+                      </div>
+                      {stockDisplay}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{marginBottom: '1.5rem'}}>
+              <h3 style={{fontSize: '1.1rem', marginBottom: '0.5rem'}}>2. Selecciona Acompañantes (Máx sin costo: {dmSize === 'COMPLETO' ? dailyMenuConfig.acompanantesCompleto : dailyMenuConfig.acompanantesMedio})</h3>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem'}}>
+                {dailyMenuData.acompanantes.map(side => {
+                  const selection = dmSelectedSides.find(s => s.side.id === side.id);
+                  const qty = selection ? selection.qty : 0;
+                  return (
+                    <div key={side.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', border: qty > 0 ? '1px solid var(--accent-color)' : '1px solid transparent'}}>
+                      <span>{side.name}</span>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                        <button className="icon-btn" style={{padding: '2px 8px'}} onClick={() => updateDmSideQty(side, -1)} disabled={qty === 0}>-</button>
+                        <span style={{fontWeight: 'bold', width: '20px', textAlign: 'center'}}>{qty}</span>
+                        <button className="icon-btn" style={{padding: '2px 8px'}} onClick={() => updateDmSideQty(side, 1)}>+</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{marginBottom: '1.5rem'}}>
+              <h3 style={{fontSize: '1.1rem', marginBottom: '0.5rem'}}>3. Cantidad de Platos Idénticos</h3>
+              <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                <button className="btn-secondary" style={{fontSize: '1.5rem', padding: '0.5rem 1rem'}} onClick={() => setDmQuantity(Math.max(1, dmQuantity - 1))}>-</button>
+                <span style={{fontSize: '1.5rem', fontWeight: 'bold'}}>{dmQuantity}</span>
+                <button className="btn-secondary" style={{fontSize: '1.5rem', padding: '0.5rem 1rem'}} onClick={() => setDmQuantity(dmQuantity + 1)}>+</button>
+              </div>
+              <p style={{fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.5rem'}}>Si necesitas platos con diferentes carnes o acompañantes, agrégalos por separado al carrito.</p>
+            </div>
+
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={() => setShowDailyMenuModal(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={handleAddDailyMenuToCart}>Añadir al Carrito ({dmQuantity})</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentModalOrder && (
+        <div className="modal-overlay">
+          <div className="modal-card card" style={{maxWidth: '450px', maxHeight: '90vh', overflowY: 'auto'}}>
+            <h2>Cobrar Orden</h2>
+            
+            {paymentModalOrder.orderType === 'ENVIO_COBRADO' && (
+              <div style={{backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid rgba(59, 130, 246, 0.3)'}}>
+                <div className="form-group" style={{marginBottom: '0.5rem'}}>
+                  <label>Costo del Envío (L.)</label>
+                  <input type="number" className="input-field" min="0" value={modalDeliveryFee} onChange={e => {
+                    const newFee = Number(e.target.value);
+                    setModalDeliveryFee(newFee);
+                    setSplitPayments(prev => prev.map(p => p.isAuto ? { ...p, amount: newFee } : p));
+                  }} />
+                </div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                  <input type="checkbox" id="includeDelivery" checked={includeDeliveryInInvoice} onChange={e => setIncludeDeliveryInInvoice(e.target.checked)} />
+                  <label htmlFor="includeDelivery" style={{cursor: 'pointer', fontSize: '0.9rem'}}>Mostrar costo de envío en la factura (como cargo de tercero)</label>
+
+                <div style={{marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', backgroundColor: 'rgba(246, 167, 75, 0.1)', borderRadius: '8px', border: '1px solid rgba(246, 167, 75, 0.3)'}}>
+                  <input 
+                    type="checkbox" 
+                    id="deliveryPaidByTransfer" 
+                    checked={deliveryPaidByTransfer} 
+                    onChange={e => setDeliveryPaidByTransfer(e.target.checked)} 
+                  />
+                  <label htmlFor="deliveryPaidByTransfer" style={{cursor: 'pointer', fontSize: '0.9rem', margin: 0}}>El cliente depositó/transfirió también el cobro de envío</label>
+                </div>
+                </div>
+              </div>
+            )}
+            
+
+            {(() => {
+              const baseTotal = paymentModalOrder.total;
+              const hasDelivery = paymentModalOrder.orderType === 'ENVIO_COBRADO';
+              const invoiceTotal = baseTotal + (hasDelivery && includeDeliveryInInvoice ? modalDeliveryFee : 0);
+              const finalTotal = baseTotal + (hasDelivery ? modalDeliveryFee : 0);
+              
+              let expectedToCollect = baseTotal;
+              if (hasDelivery && deliveryPaidByTransfer) {
+                 expectedToCollect = finalTotal;
+              }
+              const totalAdded = splitPayments.reduce((acc, p) => acc + p.amount, 0);
+              const remaining = Math.max(0, expectedToCollect - totalAdded);
+              const hasConsumo = splitPayments.some(p => p.method === 'CONSUMO_PROPIO');
+              const canAddPayment = remaining > 0 && !hasConsumo;
+
+              const handleAddPayment = () => {
+                let newPayments = [...splitPayments];
+
+                if (paymentMethod === 'CONSUMO_PROPIO') {
+                  newPayments = [{ method: 'CONSUMO_PROPIO', amount: finalTotal, bank: null }];
+                  setSplitPayments(newPayments);
+                  setCurrentPaymentAmount('');
+                  return handleConfirmPayment(newPayments);
+                }
+                
+                let amt = Number(currentPaymentAmount);
+                if (!currentPaymentAmount) {
+                   amt = remaining;
+                }
+
+                if (amt <= 0) return toast.error("Ingresa un monto válido");
+                if (amt > remaining && paymentMethod !== 'EFECTIVO') {
+                  return toast.error("Solo efectivo puede superar el saldo pendiente para calcular vuelto.");
+                }
+                
+                newPayments.push({ method: paymentMethod, amount: amt, bank: paymentMethod === 'TRANSFERENCIA' ? paymentBank : null });
+                setSplitPayments(newPayments);
+                setCurrentPaymentAmount('');
+                setPaymentMethod('EFECTIVO');
+                
+                const newTotalAdded = newPayments.reduce((acc, p) => acc + p.amount, 0);
+                if (newTotalAdded >= finalTotal) {
+                  // Completado, auto-confirmar
+                  handleConfirmPayment(newPayments);
+                }
+              };
+
+              const removePayment = (idx) => {
+                setSplitPayments(splitPayments.filter((_, i) => i !== idx));
+              };
+
+              // Si es un pago simple, "remaining" es todo menos el envio (si el envio está auto-asociado a PAGO_REPARTIDOR)
+              // Wait, in Single Mode we just ask for Amount to get change.
+              const simpleRemaining = finalTotal - (hasDelivery && splitPayments.some(p => p.isAuto && p.method === 'PAGO_REPARTIDOR') ? modalDeliveryFee : 0);
+
+              return (
+                <div>
+                  <div style={{fontSize: '1.2rem', fontWeight: 'bold', margin: '1rem 0', color: 'var(--text-color)', textAlign: 'center'}}>
+                    Total Factura: L. {invoiceTotal.toFixed(2)}
+                  </div>
+                  
+                    <>
+                      {splitPayments.length > 0 && (
+                        <div style={{marginBottom: '1rem'}}>
+                          <h4>Pagos Añadidos:</h4>
+                          <ul style={{listStyle: 'none', padding: 0}}>
+                            {splitPayments.map((p, idx) => (
+                              <li key={idx} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: '0.5rem', marginBottom: '0.5rem', borderRadius: '4px'}}>
+                                <div>
+                                  <strong>{p.method === 'PAGO_REPARTIDOR' ? 'Retenido por Repartidor' : p.method}</strong> {p.bank ? `(${p.bank})` : ''}
+                                </div>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                                  <span>L. {p.amount.toFixed(2)}</span>
+                                  {!p.isAuto && <button className="icon-btn" style={{color: 'red'}} onClick={() => removePayment(idx)}>❌</button>}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div style={{fontSize: '1.5rem', fontWeight: 'bold', margin: '1rem 0', color: remaining > 0 ? 'var(--accent-color)' : '#4CAF50', textAlign: 'center'}}>
+                        {remaining > 0 ? `Saldo Pendiente: L. ${remaining.toFixed(2)}` : 'Saldo Completado'}
+                      </div>
+
+                      {totalAdded > finalTotal && splitPayments[splitPayments.length - 1]?.method === 'EFECTIVO' && (
+                        <div style={{marginTop: '0.5rem', fontSize: '1.2rem', color: '#4CAF50', fontWeight: 'bold', textAlign: 'center'}}>
+                          Vuelto: L. {(totalAdded - finalTotal).toFixed(2)}
+                        </div>
+                      )}
+
+                      {canAddPayment && (
+                        <div style={{padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)'}}>
+                          <h4 style={{marginBottom: '0.5rem'}}>Agregar Pago</h4>
+                          <div className="form-group">
+                            <label>Método</label>
+                            <select className="input-field" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                              <option value="EFECTIVO">Efectivo</option>
+                              <option value="TRANSFERENCIA">Transferencia</option>
+                              <option value="CREDITO">Crédito (Cuenta Cliente)</option>
+                              {hasDelivery && <option value="PAGO_REPARTIDOR">Retenido por Repartidor</option>}
+                              {splitPayments.length === 0 && <option value="CONSUMO_PROPIO">Consumo Interno / Cortesía</option>}
+                            </select>
+                          </div>
+
+                          {paymentMethod === 'TRANSFERENCIA' && (
+                            <div className="form-group">
+                              <label>Banco de Destino</label>
+                              <select className="input-field" value={paymentBank} onChange={e => setPaymentBank(e.target.value)}>
+                                <option value="Bac Antony">Bac Antony</option>
+                                <option value="Bac Delmy">Bac Delmy</option>
+                                <option value="Bac Elmer">Bac Elmer</option>
+                                <option value="Banpais">Banpais</option>
+                                <option value="Atlantida">Atlantida</option>
+                                <option value="Ficohsa">Ficohsa</option>
+                                <option value="Davivienda">Davivienda</option>
+                                <option value="Occidente">Occidente</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {paymentMethod !== 'CONSUMO_PROPIO' && (
+                            <div className="form-group">
+                              <label>Monto a cobrar con {paymentMethod}</label>
+                              <input 
+                                type="number" 
+                                className="input-field" 
+                                value={currentPaymentAmount} 
+                                placeholder={`L. ${remaining.toFixed(2)}`}
+                                onChange={e => setCurrentPaymentAmount(e.target.value)} 
+                              />
+                              {paymentMethod === 'EFECTIVO' && Number(currentPaymentAmount) > remaining && (
+                                <div style={{marginTop: '0.5rem', fontSize: '1.2rem', color: '#4CAF50', fontWeight: 'bold', textAlign: 'center'}}>
+                                  Vuelto a entregar: L. {(Number(currentPaymentAmount) - remaining).toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          <button className="btn-secondary" style={{width: '100%', borderColor: 'var(--primary-color)', color: 'var(--primary-color)'}} onClick={handleAddPayment}>
+                            ➕ Confirmar
+                          </button>
+                        </div>
+                      )}
+                    </>
+
+                  <div className="form-actions" style={{marginTop: '2rem'}}>
+                    <button className="btn-secondary" onClick={() => {
+                      setPaymentModalOrder(null);
+                      setIsMultiplePayments(false);
+                    }}>Cancelar</button>
+                    {remaining === 0 && (
+                      <button 
+                        className="btn-primary" 
+                        style={{ padding: '1rem', fontSize: '1.2rem', flex: 2 }}
+                        onClick={() => handleConfirmPayment()}
+                      >
+                        ✅ Finalizar Cobro
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      
+      {unpaidWarningOrder && (
+        <div className="modal-overlay" style={{zIndex: 120}}>
+          <div className="modal-card card" style={{maxWidth: '400px', textAlign: 'center'}}>
+            <h2 style={{color: '#FF9800', marginBottom: '1rem'}}>⚠️ Pedido sin cobrar</h2>
+            <p style={{marginBottom: '1.5rem'}}>Este pedido (<strong>{unpaidWarningOrder.clientName}</strong>) no ha sido pagado. ¿Qué deseas hacer?</p>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+              <button className="btn-secondary" onClick={() => {
+                updateOrderStatus(unpaidWarningOrder.id, 'estadoEntrega', 'ENTREGADO');
+                setUnpaidWarningOrder(null);
+              }}>Dejar como Pendiente de Pago</button>
+              <button className="btn-primary" style={{backgroundColor: '#FF9800'}} onClick={() => {
+                setPaymentMethod('EFECTIVO'); 
+                setAmountReceived(''); 
+                setSplitPayments([]);
+                setCurrentPaymentAmount('');
+                setModalDeliveryFee(unpaidWarningOrder.deliveryFee || 0); 
+                setIncludeDeliveryInInvoice(true); 
+                setPaymentModalOrder(unpaidWarningOrder);
+               
+                setUnpaidWarningOrder(null);
+              }}>Cobrar Ahora</button>
+            </div>
+            <button className="btn-secondary" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setUnpaidWarningOrder(null)}>Cancelar</button>
           </div>
         </div>
       )}
