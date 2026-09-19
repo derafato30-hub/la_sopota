@@ -73,6 +73,7 @@ export default function POS() {
   
   // Customer Management
   const [customers, setCustomers] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
@@ -408,6 +409,8 @@ export default function POS() {
       // Traer clientes
       const custSnap = await getDocs(collection(db, 'clients'));
       setCustomers(custSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const driverSnap = await getDocs(collection(db, 'drivers'));
+      setDrivers(driverSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (error) {
       console.error("Error fetching POS data:", error);
     }
@@ -1796,7 +1799,17 @@ export default function POS() {
             <h2>Despachar Orden en Ruta</h2>
             <div className="form-group" style={{marginTop: '1rem'}}>
               <label>Nombre del Repartidor (Opcional)</label>
-              <input type="text" className="input-field" value={driverName} onChange={e => setDriverName(e.target.value)} autoFocus />
+              <input type="text" className="input-field" value={driverName} onChange={e => {
+                const val = e.target.value;
+                setDriverName(val);
+                const found = drivers.find(d => d.name.toLowerCase() === val.toLowerCase());
+                if (found && found.phone) {
+                  setDriverPhone(found.phone);
+                }
+              }} list="drivers-list" autoFocus />
+              <datalist id="drivers-list">
+                {drivers.map(d => <option key={d.id} value={d.name} />)}
+              </datalist>
             </div>
             <div className="form-group">
               <label>Teléfono del Repartidor (Opcional)</label>
@@ -1826,6 +1839,13 @@ export default function POS() {
                   driverPhone,
                   driverPaidFromRegister: (dispatchOrder.deliveryFee > 0 && payDriverFromRegister)
                 });
+                
+                if (driverName.trim()) {
+                  await setDoc(doc(db, 'drivers', driverName.trim().toLowerCase().replace(/\s+/g, '_')), {
+                    name: driverName.trim(),
+                    phone: driverPhone.trim()
+                  });
+                }
                 
                 // Si está marcado, generamos el gasto automático
                 if (dispatchOrder.deliveryFee > 0 && payDriverFromRegister) {
