@@ -832,7 +832,7 @@ export default function POS() {
                   <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
                   <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -878,7 +878,7 @@ export default function POS() {
                     <button className="btn-primary" onClick={() => handleMarkDelivered(o)}>Entregar en Local</button>
                   )}
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   )}
@@ -917,7 +917,7 @@ export default function POS() {
                   L. {o.total.toFixed(2)} | Pago: <strong style={{color: '#FF9800'}}>{o.estadoPago}</strong>
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(true); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
+                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments([]); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
                   <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
                   <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
                 </div>
@@ -1441,14 +1441,14 @@ export default function POS() {
               <div style={{backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid rgba(59, 130, 246, 0.3)'}}>
                 <div className="form-group" style={{marginBottom: '0.5rem'}}>
                   <label>Costo del Envío (L.)</label>
-                  <input type="number" className="input-field" min="0" value={modalDeliveryFee} onChange={e => {
+                  <input type="number" className="input-field" min="0" value={modalDeliveryFee} disabled={paymentModalOrder.estadoEntrega === 'ENTREGADO'} onChange={e => {
                     const newFee = Number(e.target.value);
                     setModalDeliveryFee(newFee);
                     setSplitPayments(prev => prev.map(p => p.isAuto ? { ...p, amount: newFee } : p));
                   }} />
                 </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                  <input type="checkbox" id="includeDelivery" checked={includeDeliveryInInvoice} onChange={e => setIncludeDeliveryInInvoice(e.target.checked)} />
+                  <input type="checkbox" id="includeDelivery" checked={includeDeliveryInInvoice} disabled={paymentModalOrder.estadoEntrega === 'ENTREGADO'} onChange={e => setIncludeDeliveryInInvoice(e.target.checked)} />
                   <label htmlFor="includeDelivery" style={{cursor: 'pointer', fontSize: '0.9rem'}}>Mostrar costo de envío en la factura (como cargo de tercero)</label>
 
                 <div style={{marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem', backgroundColor: 'rgba(246, 167, 75, 0.1)', borderRadius: '8px', border: '1px solid rgba(246, 167, 75, 0.3)'}}>
@@ -1456,6 +1456,7 @@ export default function POS() {
                     type="checkbox" 
                     id="deliveryPaidByTransfer" 
                     checked={deliveryPaidByTransfer} 
+                    disabled={paymentModalOrder.estadoEntrega === 'ENTREGADO'}
                     onChange={e => setDeliveryPaidByTransfer(e.target.checked)} 
                   />
                   <label htmlFor="deliveryPaidByTransfer" style={{cursor: 'pointer', fontSize: '0.9rem', margin: 0}}>El cliente depositó/transfirió también el cobro de envío</label>
@@ -1655,8 +1656,7 @@ export default function POS() {
                     setAmountReceived(''); 
                     setSplitPayments([]);
                     setCurrentPaymentAmount('');
-                    setModalDeliveryFee(unpaidWarningOrder.deliveryFee || 0); 
-                    setIncludeDeliveryInInvoice(true); 
+                    setModalDeliveryFee(unpaidWarningOrder.deliveryFee || 0); setIncludeDeliveryInInvoice(unpaidWarningOrder.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(unpaidWarningOrder.deliveryPaidByTransfer || false); 
                     setPaymentModalOrder(unpaidWarningOrder);
                   
                     setUnpaidWarningOrder(null);
