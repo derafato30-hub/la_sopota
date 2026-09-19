@@ -349,7 +349,7 @@ export default function POS() {
       setPaymentMethod('EFECTIVO');
       setPaymentBank('Bac Antony');
       setAmountReceived('');
-      setSplitPayments(o.pagosMultiples || o.splitPayments || []);
+      setSplitPayments([]);
       setCurrentPaymentAmount('');
       loadOrders();
       
