@@ -1488,7 +1488,7 @@ export default function POS() {
                   newPayments = [{ method: 'CONSUMO_PROPIO', amount: finalTotal, bank: null }];
                   setSplitPayments(newPayments);
                   setCurrentPaymentAmount('');
-                  return handleConfirmPayment(newPayments);
+                  return;
                 }
                 
                 let amt = Number(currentPaymentAmount);
@@ -1507,10 +1507,6 @@ export default function POS() {
                 setPaymentMethod('EFECTIVO');
                 
                 const newTotalAdded = newPayments.reduce((acc, p) => acc + p.amount, 0);
-                if (newTotalAdded >= finalTotal) {
-                  // Completado, auto-confirmar
-                  handleConfirmPayment(newPayments);
-                }
               };
 
               const removePayment = (idx) => {
@@ -1606,7 +1602,7 @@ export default function POS() {
                           )}
                           
                           <button className="btn-secondary" style={{width: '100%', borderColor: 'var(--primary-color)', color: 'var(--primary-color)'}} onClick={handleAddPayment}>
-                            ➕ Confirmar
+                            ➕ Añadir Pago
                           </button>
                         </div>
                       )}
