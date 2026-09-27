@@ -378,7 +378,7 @@ function CuentasPorCobrar({ currentUser }) {
 
       <div className="table-container">
         {loading ? <p>Cargando...</p> : (
-          <table className="pos-table">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>Cliente</th>
