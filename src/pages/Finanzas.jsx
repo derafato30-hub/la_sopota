@@ -5,11 +5,12 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
 import { TrendingUp, Plus, CreditCard, Filter, ChevronDown, ChevronUp, DollarSign, Users, Briefcase, FileText, Search } from 'lucide-react';
-import './Gastos.css'; // Reutilizamos estilos de tarjetas
+import './Gastos.css';
+import './Dashboard.css'; // Reutilizamos estilos de tarjetas
 
 export default function Finanzas() {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('PL'); // PL, REGISTRO, COBRAR
+  const [activeTab, setActiveTab] = useState('PL'); // PL, REGISTRO, COBRAR, HISTORIAL // PL, REGISTRO, COBRAR
   
   return (
     <div className="finanzas-container" style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
@@ -48,6 +49,7 @@ export default function Finanzas() {
       {activeTab === 'PL' && <DashboardPL />}
       {activeTab === 'REGISTRO' && <RegistrarEgreso currentUser={currentUser} />}
       {activeTab === 'COBRAR' && <CuentasPorCobrar currentUser={currentUser} />}
+      {activeTab === 'HISTORIAL' && <HistorialGastos />}
     </div>
   );
 }
@@ -399,6 +401,114 @@ function CuentasPorCobrar({ currentUser }) {
                         Registrar Abono
                       </button>
                     </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ----------------------------------------------------
+// TAB 4: HISTORIAL DE GASTOS
+// ----------------------------------------------------
+function HistorialGastos() {
+  const [gastos, setGastos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  const [filterCategory, setFilterCategory] = useState('TODOS');
+  const [filterDate, setFilterDate] = useState('');
+
+  useEffect(() => {
+    fetchGastos();
+  }, []);
+
+  const fetchGastos = async () => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setGastos(list);
+    } catch (e) {
+      console.error(e);
+      toast.error('Error cargando historial');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredGastos = gastos.filter(g => {
+    let passCat = filterCategory === 'TODOS' || g.category === filterCategory;
+    let passDate = true;
+    if (filterDate) {
+      const gDate = g.createdAt?.toDate ? g.createdAt.toDate().toISOString().split('T')[0] : '';
+      passDate = gDate === filterDate;
+    }
+    return passCat && passDate;
+  });
+
+  const totalFiltered = filteredGastos.reduce((acc, g) => acc + (g.amount || 0), 0);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', background: 'var(--surface-color)', padding: '1rem', borderRadius: 'var(--border-radius)', border: 'var(--glass-border)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block' }}>Filtrar por Categoría</label>
+          <select className="input-field" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+            <option value="TODOS">Todas las Categorías</option>
+            <option value="CAJA_CHICA">Caja Chica (Cajera)</option>
+            <option value="INVENTARIO">Inventario / Compras Mayores</option>
+            <option value="NOMINA">Nómina / Sueldos</option>
+            <option value="ADMINISTRATIVO">Gastos Administrativos</option>
+            <option value="INVERSION">Inversiones</option>
+            <option value="PERSONAL">Gastos Personales</option>
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block' }}>Filtrar por Fecha (Opcional)</label>
+          <input type="date" className="input-field" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+        </div>
+        <div>
+          <button className="btn-secondary" onClick={() => { setFilterCategory('TODOS'); setFilterDate(''); }}>Limpiar Filtros</button>
+        </div>
+      </div>
+
+      <div className="table-container">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--primary-color)' }}>Registro de Gastos</h3>
+          <div style={{ background: 'rgba(244, 67, 54, 0.1)', color: '#f44336', padding: '0.5rem 1rem', borderRadius: '1rem', fontWeight: 'bold' }}>
+            Total Filtrado: L. {totalFiltered.toFixed(2)}
+          </div>
+        </div>
+
+        {loading ? <p>Cargando gastos...</p> : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Categoría</th>
+                <th>Motivo / Descripción</th>
+                <th>Monto</th>
+                <th>Origen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredGastos.length === 0 ? (
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>No hay gastos en esta selección.</td></tr>
+              ) : (
+                filteredGastos.map(g => (
+                  <tr key={g.id}>
+                    <td>{g.createdAt?.toDate ? g.createdAt.toDate().toLocaleDateString() : 'N/A'}</td>
+                    <td><span style={{ fontSize: '0.8rem', background: 'var(--bg-color)', padding: '0.2rem 0.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>{g.category || 'N/A'}</span></td>
+                    <td>{g.reason}</td>
+                    <td style={{ color: '#f44336', fontWeight: 'bold' }}>L. {(g.amount || 0).toFixed(2)}</td>
+                    <td>{g.source || 'Caja (Default)'}</td>
                   </tr>
                 ))
               )}
