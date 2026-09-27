@@ -12,7 +12,7 @@ export default function Finanzas() {
   const [activeTab, setActiveTab] = useState('PL'); // PL, REGISTRO, COBRAR
   
   return (
-    <div className="pos-container" style={{ padding: '1rem', overflowY: 'auto' }}>
+    <div className="finanzas-container" style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
       <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
