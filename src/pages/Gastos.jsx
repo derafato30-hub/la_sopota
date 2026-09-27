@@ -222,6 +222,7 @@ export default function Gastos() {
       await addDoc(collection(db, 'expenses'), {
         amount: Number(gastoData.amount),
         reason: gastoData.reason,
+        category: 'CAJA_CHICA',
         createdBy: currentUser.uid,
         createdAt: serverTimestamp()
       });

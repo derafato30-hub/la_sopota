@@ -12,6 +12,7 @@ import Gastos from './pages/Gastos';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
 import Colaboradores from './pages/Colaboradores';
+import Finanzas from './pages/Finanzas';
 import MigrateDB from './pages/MigrateDB';
 
 // Componente para proteger rutas (Requiere Login)
@@ -49,6 +50,7 @@ function App() {
             <Route path="clientes" element={<Clientes />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="gastos" element={<Gastos />} />
+            <Route path="finanzas" element={<Finanzas />} />
             <Route path="colaboradores" element={<Colaboradores />} />
             <Route path="migrar-db" element={<MigrateDB />} />
           </Route>

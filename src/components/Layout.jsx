@@ -3,8 +3,9 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
+  TrendingUp, 
   UtensilsCrossed, 
   ShoppingCart, 
   Users, 
@@ -130,6 +131,16 @@ export default function Layout() {
             <Link to="/gastos" className={`nav-item ${location.pathname === '/gastos' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <Wallet size={20} />
               <span>Gastos y Cierre</span>
+            </Link>
+          )}
+
+          {hasAccess(['ADMIN']) && (
+            <Link to="/finanzas" className={`nav-item ${location.pathname === '/finanzas' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
+              <TrendingUp size={20} />
+              <span style={{display: 'flex', flexDirection: 'column'}}>
+                <span>Finanzas</span>
+                <span style={{fontSize: '0.7rem', color: '#ffb74d'}}>En construcción</span>
+              </span>
             </Link>
           )}
 
