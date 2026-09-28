@@ -54,7 +54,8 @@ export default function Gastos() {
       // Traer gastos recientes para la tabla
       const qGastos = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'), limit(20));
       const snapGastos = await getDocs(qGastos);
-      setGastos(snapGastos.docs.map(d => ({ id: d.id, ...d.data() })));
+      const mapped = snapGastos.docs.map(d => ({ id: d.id, ...d.data() }));
+      setGastos(mapped.filter(g => !g.category || g.category === 'CAJA_CHICA'));
 
       // Traer historial de cierres
       const qCierres = query(collection(db, 'dailyClosings'), orderBy('createdAt', 'desc'), limit(10));
