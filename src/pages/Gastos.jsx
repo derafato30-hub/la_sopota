@@ -194,6 +194,9 @@ export default function Gastos() {
 
     snapExp.forEach(doc => {
       const e = doc.data();
+      // Ignorar gastos del backoffice (Inversiones, Nomina, etc.)
+      if (e.category && e.category !== 'CAJA_CHICA') return;
+
       if (e.isThirdParty) {
         if (e.reason && e.reason.toLowerCase().includes('repartidor')) {
           stats.pagosRepartidores += e.amount;

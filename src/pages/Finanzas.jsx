@@ -44,6 +44,12 @@ export default function Finanzas() {
         >
           Cuentas por Cobrar
         </button>
+        <button 
+          onClick={() => setActiveTab('HISTORIAL')}
+          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', color: activeTab === 'HISTORIAL' ? 'var(--primary-color)' : 'var(--text-color)', borderBottom: activeTab === 'HISTORIAL' ? '3px solid var(--primary-color)' : '3px solid transparent', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          Historial de Gastos
+        </button>
       </div>
 
       {activeTab === 'PL' && <DashboardPL />}
