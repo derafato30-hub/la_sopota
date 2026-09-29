@@ -129,6 +129,13 @@ export default function Layout() {
           )}
 
           {hasAccess(['ADMIN']) && (
+            <Link to="/club" className={`nav-item ${location.pathname === '/club' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
+              <Shield size={20} />
+              <span>Club de Cadetes</span>
+            </Link>
+          )}
+
+          {hasAccess(['ADMIN']) && (
             <Link to="/gastos" className={`nav-item ${location.pathname === '/gastos' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <Wallet size={20} />
               <span>Gastos y Cierre</span>
