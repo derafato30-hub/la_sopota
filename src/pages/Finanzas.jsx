@@ -253,7 +253,7 @@ function DashboardPL() {
           </div>
 
           {/* Tarjeta Flujo Neto */}
-          <div className="rn-card" style={{ '--card-color': flujoNeto >= 0 ? '#2196F3' : '#f44336', '--card-bg': flujoNeto >= 0 ? 'rgba(33, 150, 243, 0.05)', gridColumn: '1 / -1' }}>
+          <div className="rn-card" style={{ '--card-color': flujoNeto >= 0 ? '#2196F3' : '#f44336', '--card-bg': flujoNeto >= 0 ? 'rgba(33, 150, 243, 0.05)' : 'rgba(244, 67, 54, 0.05)', gridColumn: '1 / -1' }}>
             <div className="rn-card-header">
               <div className="rn-icon-wrapper"><Briefcase color={flujoNeto >= 0 ? '#2196F3' : '#f44336'} size={24}/></div>
               <h3 className="rn-card-title">Flujo Neto (Ganancia Operativa)</h3>
