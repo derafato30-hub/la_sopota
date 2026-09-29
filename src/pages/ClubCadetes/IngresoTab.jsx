@@ -135,13 +135,13 @@ export default function IngresoTab({ sessionId }) {
           console.error(err);
           toast.error("La IA no pudo procesar la imagen correctamente", { id: toastId });
         } finally {
-          setIsScanning(false);
+          setIsScanning(false); if(fileInputRef.current) fileInputRef.current.value = '';
         }
       };
     } catch (error) {
       console.error(error);
       toast.error("Error leyendo archivo", { id: toastId });
-      setIsScanning(false);
+      setIsScanning(false); if(fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
