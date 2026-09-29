@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../firebase';
+import { db } from '../../firebase';
 import { toast } from 'sonner';
 import { Search, Printer } from 'lucide-react';
 
