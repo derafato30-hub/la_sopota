@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../firebase';
-import { extraerPedidosClub } from '../../../utils/aiService';
+import { db } from '../../firebase';
+import { extraerPedidosClub } from '../../utils/aiService';
 import { toast } from 'sonner';
 import { Upload, Plus, Trash2, Wand2, Loader2 } from 'lucide-react';
 
