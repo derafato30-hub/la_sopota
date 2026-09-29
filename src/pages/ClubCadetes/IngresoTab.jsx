@@ -19,6 +19,7 @@ export default function IngresoTab({ sessionId }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef(null);
+  const jsonInputRef = useRef(null);
 
   useEffect(() => {
     fetchMenu();
@@ -144,6 +145,44 @@ export default function IngresoTab({ sessionId }) {
       setIsScanning(false); if(fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  
+  const handleJsonUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const resultJson = JSON.parse(event.target.result);
+        if (!Array.isArray(resultJson)) throw new Error("El archivo no contiene un arreglo JSON.");
+
+        const newDrafts = resultJson.map(item => {
+          const matchDish = menuItems.find(m => m.name.toLowerCase() === (item.dishName || '').toLowerCase());
+          return {
+            id: Date.now().toString() + Math.random(),
+            cadetName: (item.cadetName || 'Desconocido').toUpperCase(),
+            year: YEARS.includes(item.year) ? item.year : 'Extra',
+            dishId: matchDish ? matchDish.id : '', 
+            dishName: matchDish ? matchDish.name : (item.dishName || 'Desconocido'),
+            price: matchDish ? matchDish.price : 0,
+            status: 'PENDING',
+            hasError: !matchDish 
+          };
+        });
+
+        setDraftOrders([...draftOrders, ...newDrafts]);
+        toast.success(`Se cargaron ${newDrafts.length} pedidos desde el archivo`);
+      } catch (err) {
+        console.error(err);
+        toast.error("El archivo JSON no es válido o está mal formateado.");
+      } finally {
+        if (jsonInputRef.current) jsonInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
 
   const updateDraftDish = (id, newDishId) => {
     const dish = menuItems.find(m => m.id === newDishId);

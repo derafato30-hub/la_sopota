@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Search, Printer } from 'lucide-react';
+import { Search, Printer, Trash2, AlertOctagon } from 'lucide-react';
 
 const YEARS = ['I año', 'II año', 'III año', 'IV año', 'Extra'];
 
@@ -38,6 +38,38 @@ export default function CocinaTab({ sessionId }) {
     });
     return () => unsubscribe();
   }, [sessionId]);
+
+  
+  const handleDeleteOrder = async (orderId) => {
+    if (!confirm("¿Eliminar este pedido?")) return;
+    try {
+      import('firebase/firestore').then(({ deleteDoc, doc }) => {
+        deleteDoc(doc(db, 'clubOrders', orderId));
+        toast.success("Pedido eliminado");
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al eliminar");
+    }
+  };
+
+  const handleClearTest = async () => {
+    if (!confirm("¿ESTÁS SEGURO? Esto eliminará TODOS los pedidos que están PENDIENTES. Usar solo para limpiar pruebas.")) return;
+    const pending = orders.filter(o => o.status === 'PENDING');
+    if (pending.length === 0) return toast.info("No hay pedidos pendientes para borrar");
+    
+    try {
+      import('firebase/firestore').then(({ deleteDoc, doc }) => {
+        pending.forEach(p => {
+          deleteDoc(doc(db, 'clubOrders', p.id));
+        });
+        toast.success(pending.length + " pedidos de prueba eliminados");
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al limpiar");
+    }
+  };
 
   const handleToggleStatus = async (order) => {
     try {
