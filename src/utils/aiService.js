@@ -14,7 +14,7 @@ export const generarPropuestaMenuIA = async (historialVentas) => {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `
       Eres un experto analista gastronómico y gerente de restaurante de comida hondureña para el local "La Sopota".
@@ -50,7 +50,7 @@ export const extraerPedidosClub = async (base64Image, mimeType, menuDisponibles)
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `
       Analiza la imagen adjunta. Es una lista de pedidos de comida de cadetes (puede estar escrita a mano o ser un excel).
