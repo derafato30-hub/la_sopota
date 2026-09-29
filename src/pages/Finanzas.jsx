@@ -188,7 +188,8 @@ function DashboardPL() {
 
   const ingresosTotales = data.ingresosReales + data.abonos;
   const gastosRestables = data.cajaChica + data.operativos + data.nomina + data.administrativos;
-  const flujoNeto = ingresosTotales - gastosRestables;
+  const gananciaOperativa = ingresosTotales - gastosRestables;
+  const balanceReal = gananciaOperativa - data.personales + data.inversiones;
 
   return (
     <div>
@@ -253,13 +254,13 @@ function DashboardPL() {
           </div>
 
           {/* Tarjeta Flujo Neto */}
-          <div className="rn-card" style={{ '--card-color': flujoNeto >= 0 ? '#2196F3' : '#f44336', '--card-bg': flujoNeto >= 0 ? 'rgba(33, 150, 243, 0.05)' : 'rgba(244, 67, 54, 0.05)', gridColumn: '1 / -1' }}>
+          <div className="rn-card" style={{ '--card-color': gananciaOperativa >= 0 ? '#2196F3' : '#f44336', '--card-bg': gananciaOperativa >= 0 ? 'rgba(33, 150, 243, 0.05)' : 'rgba(244, 67, 54, 0.05)', gridColumn: '1 / -1' }}>
             <div className="rn-card-header">
-              <div className="rn-icon-wrapper"><Briefcase color={flujoNeto >= 0 ? '#2196F3' : '#f44336'} size={24}/></div>
+              <div className="rn-icon-wrapper"><Briefcase color={gananciaOperativa >= 0 ? '#2196F3' : '#f44336'} size={24}/></div>
               <h3 className="rn-card-title">Flujo Neto (Ganancia Operativa)</h3>
             </div>
-            <div className="rn-card-value" style={{ color: flujoNeto >= 0 ? '#2196F3' : '#f44336', fontSize: '2.5rem' }}>
-              L. {flujoNeto.toFixed(2)}
+            <div className="rn-card-value" style={{ color: gananciaOperativa >= 0 ? '#2196F3' : '#f44336', fontSize: '2.5rem' }}>
+              L. {gananciaOperativa.toFixed(2)}
             </div>
             <p className="rn-card-desc">Este es el dinero real disponible generado por la operación del restaurante en este periodo.</p>
           </div>
@@ -282,6 +283,20 @@ function DashboardPL() {
             </div>
             <div className="rn-card-value" style={{ color: '#9C27B0' }}>L. {data.personales.toFixed(2)}</div>
             <p className="rn-card-desc">Fugas de capital no deducibles.</p>
+          </div>
+
+          {/* Tarjeta Balance Real */}
+          <div className="rn-card" style={{ '--card-color': balanceReal >= 0 ? '#00BCD4' : '#f44336', '--card-bg': balanceReal >= 0 ? 'rgba(0, 188, 212, 0.05)' : 'rgba(244, 67, 54, 0.05)', gridColumn: '1 / -1', border: balanceReal >= 0 ? '1px solid rgba(0, 188, 212, 0.3)' : '1px solid rgba(244, 67, 54, 0.3)' }}>
+            <div className="rn-card-header">
+              <div className="rn-icon-wrapper"><DollarSign color={balanceReal >= 0 ? '#00BCD4' : '#f44336'} size={24}/></div>
+              <h3 className="rn-card-title" style={{ fontSize: '1.4rem' }}>Balance Final en Caja (Efectivo Real)</h3>
+            </div>
+            <div className="rn-card-value" style={{ color: balanceReal >= 0 ? '#00BCD4' : '#f44336', fontSize: '3rem' }}>
+              L. {balanceReal.toFixed(2)}
+            </div>
+            <p className="rn-card-desc" style={{ fontSize: '1rem', fontWeight: '500' }}>
+              Esta métrica toma la <strong>Ganancia Operativa</strong>, suma Inversiones y resta tus <strong>Retiros Personales</strong> para decirte exactamente si estás consumiendo más de lo que genera el negocio.
+            </p>
           </div>
 
         </div>
