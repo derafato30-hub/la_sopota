@@ -108,11 +108,11 @@ function DashboardPL() {
       invSnap.forEach(doc => {
         const d = doc.data();
         if (d.estado !== 'ANULADA') {
-          if (d.metodoPago !== 'CREDITO' && d.metodoPago !== 'MULTIPLE') {
+          if (d.metodoPago !== 'CREDITO' && d.metodoPago !== 'MULTIPLE' && d.metodoPago !== 'CONSUMO_PROPIO' && d.metodoPago !== 'CORTESIA') {
             ingresosCash += d.total || 0;
           } else if (d.metodoPago === 'MULTIPLE' && d.pagosMultiples) {
             d.pagosMultiples.forEach(p => {
-              if(p.method !== 'CREDITO') ingresosCash += p.amount;
+              if(p.method !== 'CREDITO' && p.method !== 'CONSUMO_PROPIO' && p.method !== 'CORTESIA' && p.method !== 'PAGO_REPARTIDOR') ingresosCash += p.amount;
             });
           }
         }
