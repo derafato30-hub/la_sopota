@@ -124,11 +124,11 @@ export default function CierreTab({ sessionId }) {
           padding: '1.5rem', 
           borderRadius: '8px',
           background: difference === 0 ? 'rgba(76, 175, 80, 0.1)' : difference > 0 ? 'rgba(33, 150, 243, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-          border: \`1px solid \${difference === 0 ? '#4CAF50' : difference > 0 ? '#2196F3' : '#f44336'}\`,
+          border: difference === 0 ? '1px solid #4CAF50' : difference > 0 ? '1px solid #2196F3' : '1px solid #f44336',
           textAlign: 'center'
         }}>
           <h3 style={{ margin: 0, color: difference === 0 ? '#4CAF50' : difference > 0 ? '#2196F3' : '#f44336' }}>
-            {difference === 0 ? 'Caja Cuadrada Exacta' : difference > 0 ? \`Sobrante: L. \${difference.toFixed(2)}\` : \`Faltante: L. \${Math.abs(difference).toFixed(2)}\`}
+            {difference === 0 ? 'Caja Cuadrada Exacta' : difference > 0 ? `Sobrante: L. ${difference.toFixed(2)}` : `Faltante: L. ${Math.abs(difference).toFixed(2)}`}
           </h3>
         </div>
 
