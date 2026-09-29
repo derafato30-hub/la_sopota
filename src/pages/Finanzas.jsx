@@ -109,7 +109,7 @@ function DashboardPL() {
       let ingresosDelivery = 0;
       invSnap.forEach(doc => {
         const d = doc.data();
-        if (d.estado !== 'ANULADA') {
+        if (d.estado !== 'ANULADA' && d.estado !== 'CANCELADA' && d.estadoCocina !== 'CANCELADA' && d.estadoPago !== 'CANCELADO') {
           const food = d.foodTotal !== undefined ? d.foodTotal : (d.total - (d.deliveryFee || 0));
           const delivery = d.orderType === 'ENVIO_COBRADO' ? (d.deliveryFee || 0) : 0;
           
