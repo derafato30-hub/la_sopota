@@ -16,6 +16,7 @@ import {
   Receipt,
   UserCog,
   Menu,
+  Shield,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
