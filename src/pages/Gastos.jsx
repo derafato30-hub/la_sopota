@@ -125,7 +125,10 @@ export default function Gastos() {
              return;
           }
           if (p.method === 'CONSUMO_PROPIO') {
-             if (!isConsumoTotal) stats.consumoInterno = (stats.consumoInterno || 0) + pAmt;
+             if (!isConsumoTotal) {
+                stats.consumoInterno = (stats.consumoInterno || 0) + pAmt;
+                stats.ventaTotal -= pAmt;
+             }
              return;
           }
 
