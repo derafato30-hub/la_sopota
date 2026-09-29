@@ -116,7 +116,7 @@ export default function Gastos() {
       }
 
       if (o.pagosMultiples && o.pagosMultiples.length > 0) {
-        let remainingDeliveryToAllocate = (o.orderType === 'ENVIO_COBRADO' && o.deliveryPaidByTransfer) ? (o.deliveryFee || 0) : 0;
+        let remainingDeliveryToAllocate = (o.orderType === 'ENVIO_COBRADO') ? (o.deliveryFee || 0) : 0;
 
         o.pagosMultiples.forEach(p => {
           let pAmt = p.amount;
@@ -133,10 +133,16 @@ export default function Gastos() {
           }
 
           let deliveryPortion = 0;
-          if (remainingDeliveryToAllocate > 0 && p.method === 'TRANSFERENCIA') {
-             deliveryPortion = Math.min(pAmt, remainingDeliveryToAllocate);
-             stats.enviosTransferencia += deliveryPortion;
-             remainingDeliveryToAllocate -= deliveryPortion;
+          if (remainingDeliveryToAllocate > 0) {
+            if (o.deliveryPaidByTransfer && p.method === 'TRANSFERENCIA') {
+               deliveryPortion = Math.min(pAmt, remainingDeliveryToAllocate);
+               stats.enviosTransferencia += deliveryPortion;
+               remainingDeliveryToAllocate -= deliveryPortion;
+            } else if (!o.deliveryPaidByTransfer && p.method === 'EFECTIVO') {
+               deliveryPortion = Math.min(pAmt, remainingDeliveryToAllocate);
+               // We don't have enviosEfectivo stats, we just subtract it from the food portion
+               remainingDeliveryToAllocate -= deliveryPortion;
+            }
           }
 
           let foodPortion = pAmt - deliveryPortion;
@@ -144,7 +150,7 @@ export default function Gastos() {
           if (p.method === 'CREDITO') {
             stats.creditoOtorgado += foodPortion;
           } else if (p.method === 'EFECTIVO') {
-            stats.efectivoVentas += pAmt; 
+            stats.efectivoVentas += foodPortion; 
           } else if (p.method === 'TRANSFERENCIA') {
             stats.transferenciasVentas += foodPortion; 
             const bankName = p.bank;
