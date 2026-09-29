@@ -304,7 +304,8 @@ export default function POS() {
         pagosMultiples: effectiveSplitPayments,
         estado: estadoBase,
         createdBy: currentUser.uid,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        saldoPendiente: hasCredit ? (effectiveSplitPayments.filter(p => p.method === 'CREDITO').reduce((acc, p) => acc + p.amount, 0)) : 0
       };
       
       await setDoc(doc(db, 'invoices', invoiceId), newInvoice);
