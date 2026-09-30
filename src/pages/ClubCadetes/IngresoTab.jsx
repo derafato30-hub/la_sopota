@@ -227,6 +227,21 @@ export default function IngresoTab({ sessionId }) {
             {isScanning ? <Loader2 size={18} className="spin" /> : <Upload size={18} />}
             {isScanning ? 'Analizando...' : 'Subir Imagen / Foto'}
           </button>
+          
+          <input 
+            type="file" 
+            accept=".json" 
+            ref={jsonInputRef} 
+            style={{ display: 'none' }} 
+            onChange={handleJsonUpload}
+          />
+          <button 
+            className="btn-secondary" 
+            onClick={() => jsonInputRef.current?.click()}
+            style={{ width: '100%', borderColor: '#4CAF50', color: '#4CAF50', marginTop: '0.5rem' }}
+          >
+            Subir Archivo JSON
+          </button>
         </div>
 
         {/* Manual Card */}
