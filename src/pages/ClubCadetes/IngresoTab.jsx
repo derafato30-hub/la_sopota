@@ -5,6 +5,43 @@ import { extraerPedidosClub } from '../../utils/aiService';
 import { toast } from 'sonner';
 import { Upload, Plus, Trash2, Wand2, Loader2 } from 'lucide-react';
 
+
+const findBestDishMatch = (raw, items) => {
+  if (!raw) return null;
+  const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, " ").replace(/\b(de|con|la|el|los|las|y)\b/g, " ").replace(/\s+/g, " ").trim();
+  
+  const rawNorm = normalize(raw);
+  const rawWords = rawNorm.split(" ").filter(Boolean);
+  
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const item of items) {
+    const itemNorm = normalize(item.name);
+    if (itemNorm === rawNorm) return item; // Exact match
+
+    const itemWords = itemNorm.split(" ").filter(Boolean);
+    let score = 0;
+    
+    itemWords.forEach(iw => {
+      // Check for singular/plural or exact match
+      if (rawWords.some(rw => rw.startsWith(iw) || iw.startsWith(rw))) {
+        score++;
+      }
+    });
+
+    // We want at least some words to match. 
+    // The more words match, the better.
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = item;
+    }
+  }
+
+  // Threshold: at least 1 meaningful word must match
+  return bestScore > 0 ? bestMatch : null;
+};
+
 const YEARS = ['I año', 'II año', 'III año', 'IV año', 'Extra'];
 
 export default function IngresoTab({ sessionId }) {
@@ -125,7 +162,7 @@ export default function IngresoTab({ sessionId }) {
           else if (rawYear.includes('3') || rawYear.includes('iii ') || rawYear === 'iii' || rawYear.includes('tercero')) finalYear = 'III año';
           else if (rawYear.includes('4') || rawYear.includes('iv ') || rawYear === 'iv' || rawYear.includes('cuarto')) finalYear = 'IV año';
 
-          const matchDish = menuItems.find(m => m.name.toLowerCase() === rawDish.toLowerCase());
+          const matchDish = findBestDishMatch(rawDish, menuItems);
 
           return {
             id: Date.now().toString() + Math.random(),
@@ -177,7 +214,7 @@ export default function IngresoTab({ sessionId }) {
           else if (rawYear.includes('3') || rawYear.includes('iii ') || rawYear === 'iii' || rawYear.includes('tercero')) finalYear = 'III año';
           else if (rawYear.includes('4') || rawYear.includes('iv ') || rawYear === 'iv' || rawYear.includes('cuarto')) finalYear = 'IV año';
 
-          const matchDish = menuItems.find(m => m.name.toLowerCase() === rawDish.toLowerCase());
+          const matchDish = findBestDishMatch(rawDish, menuItems);
 
           return {
             id: Date.now().toString() + Math.random(),
