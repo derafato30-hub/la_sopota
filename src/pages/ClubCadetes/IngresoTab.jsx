@@ -115,20 +115,29 @@ export default function IngresoTab({ sessionId }) {
 
           // Mapear resultado a la estructura del draft
           const newDrafts = resultJson.map(item => {
-            // Buscar si el dishName coincide con alguno de la base de datos
-            const matchDish = menuItems.find(m => m.name.toLowerCase() === (item.dishName || '').toLowerCase());
-            
-            return {
-              id: Date.now().toString() + Math.random(),
-              cadetName: (item.cadetName || 'Desconocido').toUpperCase(),
-              year: YEARS.includes(item.year) ? item.year : 'Extra',
-              dishId: matchDish ? matchDish.id : '', // Vacío si no se encontró exacto
-              dishName: matchDish ? matchDish.name : (item.dishName || 'Desconocido'),
-              price: matchDish ? matchDish.price : 0,
-              status: 'PENDING',
-              hasError: !matchDish // Bandera para mostrar en rojo si hay que corregirlo manual
-            };
-          });
+          const rawName = item.cadetName || item.nombre || item.apellido || item.cadete || item.name || 'Desconocido';
+          let rawYear = String(item.year || item.año || item.ano || item.curso || 'Extra').toLowerCase();
+          const rawDish = String(item.dishName || item.pedido || item.platillo || item.comida || item.plato || 'Desconocido');
+
+          let finalYear = 'Extra';
+          if (rawYear.includes('1') || rawYear.includes('i ') || rawYear === 'i' || rawYear.includes('primero')) finalYear = 'I año';
+          else if (rawYear.includes('2') || rawYear.includes('ii ') || rawYear === 'ii' || rawYear.includes('segundo')) finalYear = 'II año';
+          else if (rawYear.includes('3') || rawYear.includes('iii ') || rawYear === 'iii' || rawYear.includes('tercero')) finalYear = 'III año';
+          else if (rawYear.includes('4') || rawYear.includes('iv ') || rawYear === 'iv' || rawYear.includes('cuarto')) finalYear = 'IV año';
+
+          const matchDish = menuItems.find(m => m.name.toLowerCase() === rawDish.toLowerCase());
+
+          return {
+            id: Date.now().toString() + Math.random(),
+            cadetName: rawName.toUpperCase(),
+            year: finalYear,
+            dishId: matchDish ? matchDish.id : '', 
+            dishName: matchDish ? matchDish.name : rawDish,
+            price: matchDish ? matchDish.price : 0,
+            status: 'PENDING',
+            hasError: !matchDish 
+          };
+        });
 
           setDraftOrders([...draftOrders, ...newDrafts]);
           toast.success(`Se encontraron ${newDrafts.length} pedidos`, { id: toastId });
@@ -158,13 +167,24 @@ export default function IngresoTab({ sessionId }) {
         if (!Array.isArray(resultJson)) throw new Error("El archivo no contiene un arreglo JSON.");
 
         const newDrafts = resultJson.map(item => {
-          const matchDish = menuItems.find(m => m.name.toLowerCase() === (item.dishName || '').toLowerCase());
+          const rawName = item.cadetName || item.nombre || item.apellido || item.cadete || item.name || 'Desconocido';
+          let rawYear = String(item.year || item.año || item.ano || item.curso || 'Extra').toLowerCase();
+          const rawDish = String(item.dishName || item.pedido || item.platillo || item.comida || item.plato || 'Desconocido');
+
+          let finalYear = 'Extra';
+          if (rawYear.includes('1') || rawYear.includes('i ') || rawYear === 'i' || rawYear.includes('primero')) finalYear = 'I año';
+          else if (rawYear.includes('2') || rawYear.includes('ii ') || rawYear === 'ii' || rawYear.includes('segundo')) finalYear = 'II año';
+          else if (rawYear.includes('3') || rawYear.includes('iii ') || rawYear === 'iii' || rawYear.includes('tercero')) finalYear = 'III año';
+          else if (rawYear.includes('4') || rawYear.includes('iv ') || rawYear === 'iv' || rawYear.includes('cuarto')) finalYear = 'IV año';
+
+          const matchDish = menuItems.find(m => m.name.toLowerCase() === rawDish.toLowerCase());
+
           return {
             id: Date.now().toString() + Math.random(),
-            cadetName: (item.cadetName || 'Desconocido').toUpperCase(),
-            year: YEARS.includes(item.year) ? item.year : 'Extra',
+            cadetName: rawName.toUpperCase(),
+            year: finalYear,
             dishId: matchDish ? matchDish.id : '', 
-            dishName: matchDish ? matchDish.name : (item.dishName || 'Desconocido'),
+            dishName: matchDish ? matchDish.name : rawDish,
             price: matchDish ? matchDish.price : 0,
             status: 'PENDING',
             hasError: !matchDish 
