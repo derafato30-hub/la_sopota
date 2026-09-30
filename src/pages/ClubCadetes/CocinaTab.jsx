@@ -197,7 +197,11 @@ export default function CocinaTab({ sessionId }) {
 
         <button className="btn-secondary" onClick={handlePrint} style={{ marginLeft: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <Printer size={18} />
-          Imprimir Listas
+          Imprimir
+        </button>
+        <button onClick={handleClearTest} style={{ marginLeft: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'transparent', border: '1px solid #f44336', color: '#f44336', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}>
+          <AlertOctagon size={18} />
+          Limpiar Pruebas
         </button>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '2rem' }}>
@@ -257,10 +261,7 @@ export default function CocinaTab({ sessionId }) {
                         </span>
                         {selectedDishId === 'ALL' && (
                           <span style={{ fontSize: '0.75rem', color: 'var(--primary-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {order.dishName}
-                          </span>
-                        )}
-                      </div>
+                            {order.dishName}</span>)}</div><button onClick={() => handleDeleteOrder(order.id)} style={{ background: 'transparent', border: 'none', color: '#f44336', cursor: 'pointer', padding: '0.2rem' }}><Trash2 size={16} /></button>
                     </div>
                   ))
                 )}
