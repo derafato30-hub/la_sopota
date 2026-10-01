@@ -15,6 +15,28 @@ export default function Dashboard() {
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const [lunesData, setLunesData] = useState(null);
+
+  useEffect(() => {
+    const fetchLunes = async () => {
+      const start = new Date('2026-09-28T00:00:00.000-06:00');
+      const end = new Date('2026-09-28T23:59:59.999-06:00');
+      const q = query(collection(db, 'orders'), where('createdAt', '>=', Timestamp.fromDate(start)), where('createdAt', '<=', Timestamp.fromDate(end)));
+      const snap = await getDocs(q);
+      
+      let totals = {};
+      snap.forEach(doc => {
+        const pm = doc.data().paymentMethod || 'desconocido';
+        const total = doc.data().total || 0;
+        if (!totals[pm]) totals[pm] = 0;
+        totals[pm] += total;
+      });
+      setLunesData(totals);
+    };
+    fetchLunes();
+  }, []);
+
+
   // Estados para la IA
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProposal, setAiProposal] = useState('');
