@@ -142,7 +142,7 @@ function DashboardPL() {
       });
 
       // Traer Abonos
-      const abnQuery = query(collection(db, 'creditPayments'), where('createdAt', '>=', Timestamp.fromDate(startDate)), where('createdAt', '<=', Timestamp.fromDate(endOfDay)));
+      const abnQuery = query(collection(db, 'receipts'), where('createdAt', '>=', Timestamp.fromDate(startDate)), where('createdAt', '<=', Timestamp.fromDate(endOfDay)));
       const abnSnap = await getDocs(abnQuery);
       let totalAbonos = 0;
       abnSnap.forEach(doc => totalAbonos += doc.data().amount || 0);
