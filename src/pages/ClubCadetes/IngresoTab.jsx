@@ -152,7 +152,7 @@ export default function IngresoTab({ sessionId }) {
 
           // Mapear resultado a la estructura del draft
           const newDrafts = resultJson.map(item => {
-          const rawName = item.cadetName || item.nombre || item.apellido || item.cadete || item.name || 'Desconocido';
+          const rawName = item.cadetName || item.nombre || item.apellido || item.apellidos || item.cadete || item.name || 'Desconocido';
           let rawYear = String(item.year || item.año || item.ano || item.curso || 'Extra').toLowerCase();
           const rawDish = String(item.dishName || item.pedido || item.platillo || item.comida || item.plato || 'Desconocido');
 
@@ -204,7 +204,7 @@ export default function IngresoTab({ sessionId }) {
         if (!Array.isArray(resultJson)) throw new Error("El archivo no contiene un arreglo JSON.");
 
         const newDrafts = resultJson.map(item => {
-          const rawName = item.cadetName || item.nombre || item.apellido || item.cadete || item.name || 'Desconocido';
+          const rawName = item.cadetName || item.nombre || item.apellido || item.apellidos || item.cadete || item.name || 'Desconocido';
           let rawYear = String(item.year || item.año || item.ano || item.curso || 'Extra').toLowerCase();
           const rawDish = String(item.dishName || item.pedido || item.platillo || item.comida || item.plato || 'Desconocido');
 
