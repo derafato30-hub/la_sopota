@@ -8,7 +8,7 @@ import { Wallet, TrendingDown, CheckSquare, History, List, X } from 'lucide-reac
 import './Gastos.css';
 
 export default function Gastos() {
-  const { currentUser } = useAuth();
+  const { currentUser, userRole } = useAuth();
   const [gastos, setGastos] = useState([]);
   const [cierres, setCierres] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,16 +51,35 @@ export default function Gastos() {
   const fetchGastosYCierres = async () => {
     try {
       setLoading(true);
-      // Traer gastos recientes para la tabla
-      const qGastos = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'), limit(20));
-      const snapGastos = await getDocs(qGastos);
-      const mapped = snapGastos.docs.map(d => ({ id: d.id, ...d.data() }));
-      setGastos(mapped.filter(g => !g.category || g.category === 'CAJA_CHICA'));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startOfToday = Timestamp.fromDate(today);
 
-      // Traer historial de cierres
-      const qCierres = query(collection(db, 'dailyClosings'), orderBy('createdAt', 'desc'), limit(10));
+      // Traer gastos (SOLO DE HOY)
+      const qGastos = query(collection(db, 'expenses'), where('createdAt', '>=', startOfToday));
+      const snapGastos = await getDocs(qGastos);
+      let mappedGastos = snapGastos.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Filtrar CAJA CHICA y por usuario (si no es admin, solo los de l)
+      mappedGastos = mappedGastos.filter(g => {
+        if (g.category && g.category !== 'CAJA_CHICA') return false;
+        if (userRole !== 'ADMIN' && g.createdBy !== currentUser.uid) return false;
+        return true;
+      });
+      // Ordenar localmente
+      mappedGastos.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      setGastos(mappedGastos);
+
+      // Traer historial de cierres (ltimos 50 para poder filtrar en memoria)
+      const qCierres = query(collection(db, 'dailyClosings'), orderBy('createdAt', 'desc'), limit(50));
       const snapCierres = await getDocs(qCierres);
-      setCierres(snapCierres.docs.map(d => ({ id: d.id, ...d.data() })));
+      let mappedCierres = snapCierres.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Filtrar por usuario (si no es admin)
+      if (userRole !== 'ADMIN') {
+        mappedCierres = mappedCierres.filter(c => c.createdBy === currentUser.uid);
+      }
+      setCierres(mappedCierres.slice(0, 10)); // Mostrar solo los ltimos 10 del usuario
 
       await calcularTotalesDelDia();
     } catch (error) {
