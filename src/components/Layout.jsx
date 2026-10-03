@@ -71,70 +71,70 @@ export default function Layout() {
         </div>
         
         <nav className="sidebar-nav">
-          {hasAccess(['ADMIN']) && (
+          {hasPermission("dashboard") && (
             <Link to="/" className={`nav-item ${location.pathname === '/' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <LayoutDashboard size={20} />
               <span>Dashboard</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN', 'CAJERO']) && (
+          {hasPermission("pos") && (
             <Link to="/pos" className={`nav-item ${location.pathname === '/pos' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <ShoppingCart size={20} />
               <span>Punto de Venta</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN']) && (
+          {hasPermission("menu") && (
             <Link to="/menu" className={`nav-item ${location.pathname === '/menu' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <UtensilsCrossed size={20} />
               <span>Catálogo General</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN']) && (
+          {hasPermission("menu_dia") && (
             <Link to="/menu-dia" className={`nav-item ${location.pathname === '/menu-dia' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <Calendar size={20} />
               <span>Armar Menú (Hoy)</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN', 'COCINERO']) && (
+          {hasPermission("cocina") && (
             <Link to="/kds" className={`nav-item ${location.pathname === '/kds' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <ChefHat size={20} />
               <span>Cocina (KDS)</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN', 'CAJERO']) && (
+          {hasPermission("clientes") && (
             <Link to="/clientes" className={`nav-item ${location.pathname === '/clientes' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <Users size={20} />
               <span>Clientes</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN', 'CAJERO']) && (
+          {hasPermission("facturas") && (
             <Link to="/invoices" className={`nav-item ${location.pathname === '/invoices' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <Receipt size={20} />
               <span>Facturas</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN']) && (
+          {hasPermission("club") && (
             <Link to="/club" className={`nav-item ${location.pathname === '/club' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <Shield size={20} />
               <span>Club de Cadetes</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN']) && (
+          {hasPermission("gastos") && (
             <Link to="/gastos" className={`nav-item ${location.pathname === '/gastos' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <Wallet size={20} />
               <span>Gastos y Cierre</span>
             </Link>
           )}
 
-          {hasAccess(['ADMIN']) && (
+          {hasPermission("finanzas") && (
             <Link to="/finanzas" className={`nav-item ${location.pathname === '/finanzas' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <TrendingUp size={20} />
               <span style={{display: 'flex', flexDirection: 'column'}}>
@@ -144,7 +144,7 @@ export default function Layout() {
             </Link>
           )}
 
-          {hasAccess(['ADMIN']) && (
+          {hasPermission("colaboradores") && (
             <Link to="/colaboradores" className={`nav-item ${location.pathname === '/colaboradores' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <UserCog size={20} />
               <span>Colaboradores</span>
