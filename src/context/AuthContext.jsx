@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const AuthContext = createContext();
@@ -11,39 +11,71 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null); // Ej: 'ADMIN', 'CAJERO', 'COCINERO'
+  const [userRole, setUserRole] = useState(null); 
+  const [userPermissions, setUserPermissions] = useState(null);
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeDoc = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user);
-        try {
-          // Buscamos el documento del usuario en Firestore para obtener su rol
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
+        
+        // Use onSnapshot to listen for live permission changes!
+        unsubscribeDoc = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
           if (userDoc.exists()) {
-            setUserRole(userDoc.data().role);
+            const data = userDoc.data();
+            setUserRole(data.role || 'GUEST');
+            setUserPermissions(data.permissions || {});
+            setRequirePasswordChange(!!data.requirePasswordChange);
+            setIsActive(data.active !== false); // default to true if undefined
           } else {
-            // Rol por defecto si no existe o para propósitos de prueba
+            // Default master for existing dev sessions if doc doesn't exist
             setUserRole('ADMIN'); 
+            setUserPermissions({ '*': true }); // Master key
+            setRequirePasswordChange(false);
+            setIsActive(true);
           }
-        } catch (error) {
-          console.error("Error obteniendo el rol del usuario:", error);
-          setUserRole(null);
-        }
+          setLoading(false);
+        }, (error) => {
+          console.error("Error obteniendo datos del usuario:", error);
+          setLoading(false);
+        });
+
       } else {
         setCurrentUser(null);
         setUserRole(null);
+        setUserPermissions(null);
+        setRequirePasswordChange(false);
+        setIsActive(true);
+        setLoading(false);
+        if (unsubscribeDoc) unsubscribeDoc();
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) unsubscribeDoc();
+    };
   }, []);
+
+  // Helper function to check permissions
+  const hasPermission = (moduleName) => {
+    if (!userPermissions) return false;
+    if (userPermissions['*'] === true) return true; // Master Override
+    return userPermissions[moduleName] === true;
+  };
 
   const value = {
     currentUser,
-    userRole
+    userRole,
+    userPermissions,
+    requirePasswordChange,
+    isActive,
+    hasPermission
   };
 
   return (

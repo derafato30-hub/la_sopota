@@ -23,7 +23,7 @@ import {
 import './Layout.css';
 
 export default function Layout() {
-  const { currentUser, userRole } = useAuth();
+  const { currentUser, userRole, hasPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -36,14 +36,6 @@ export default function Layout() {
     } catch (error) {
       console.error("Error al cerrar sesión", error);
     }
-  };
-
-  // Helper para verificar permisos
-  const hasAccess = (allowedRoles) => {
-    if (!userRole) return false;
-    // Remove all whitespace and invisible characters
-    const normalizedRole = String(userRole).replace(/[\s\u200B-\u200D\uFEFF]/g, '').toUpperCase();
-    return allowedRoles.includes(normalizedRole);
   };
 
   return (

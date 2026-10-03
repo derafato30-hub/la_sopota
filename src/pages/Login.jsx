@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { toast } from 'sonner';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import { ChefHat, Eye, EyeOff } from 'lucide-react';
@@ -12,6 +14,29 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  
+  // Show error if redirected due to suspension
+  useState(() => {
+    if (location.state?.error === 'CUENTA_SUSPENDIDA') {
+      auth.signOut();
+      setError('Esta cuenta ha sido suspendida por el administrador.');
+    }
+  });
+
+  const handleReset = async () => {
+    if (!email) {
+      toast.error('Ingresa tu correo electrnico primero');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success('Correo de recuperacin enviado a ' + email);
+    } catch (e) {
+      toast.error('Error enviando correo: ' + e.message);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -74,6 +99,11 @@ export default function Login() {
             </div>
           </div>
 
+          <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+            <button type="button" onClick={handleReset} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem' }}>
+              Olvid mi contrasea
+            </button>
+          </div>
           <button disabled={loading} type="submit" className="btn-primary login-btn">
             {loading ? 'Ingresando...' : 'Iniciar Sesión'}
           </button>
