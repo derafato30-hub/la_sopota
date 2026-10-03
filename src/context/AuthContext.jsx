@@ -64,6 +64,7 @@ export function AuthProvider({ children }) {
 
   // Helper function to check permissions
   const hasPermission = (moduleName) => {
+    if (userRole === 'ADMIN') return true; // Force master override for admins
     if (!userPermissions) return false;
     if (userPermissions['*'] === true) return true; // Master Override
     return userPermissions[moduleName] === true;
