@@ -44,6 +44,9 @@ export default function Colaboradores() {
   // Create form
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newIdentity, setNewIdentity] = useState('');
+  const [newAddress, setNewAddress] = useState('');
   const [newRole, setNewRole] = useState('CAJERO');
   const [newPassword, setNewPassword] = useState('Sopota2026');
   const [isCreating, setIsCreating] = useState(false);
@@ -107,6 +110,9 @@ export default function Colaboradores() {
         email: newEmail,
         name: newName,
         role: newRole,
+        phone: newPhone,
+        identity: newIdentity,
+        address: newAddress,
         permissions: defaultPerms,
         requirePasswordChange: true,
         active: true,
@@ -117,7 +123,7 @@ export default function Colaboradores() {
       setShowCreateModal(false);
       
       // Reset form
-      setNewEmail(''); setNewName(''); setNewPassword('Sopota2026');
+      setNewEmail(''); setNewName(''); setNewPhone(''); setNewIdentity(''); setNewAddress(''); setNewPassword('Sopota2026');
       fetchUsers();
       
     } catch (error) {
@@ -189,6 +195,7 @@ export default function Colaboradores() {
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-color)' }}>
               <th style={{ padding: '1rem' }}>Usuario</th>
+              <th style={{ padding: '1rem' }}>Datos Personales</th>
               <th style={{ padding: '1rem' }}>Rol Asignado</th>
               <th style={{ padding: '1rem' }}>Estado</th>
               <th style={{ padding: '1rem' }}>Seguridad</th>
@@ -197,14 +204,20 @@ export default function Colaboradores() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" style={{ padding: '2rem', textAlign: 'center' }}>Cargando usuarios...</td></tr>
+              <tr><td colSpan="6" style={{ padding: '2rem', textAlign: 'center' }}>Cargando usuarios...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan="5" style={{ padding: '2rem', textAlign: 'center' }}>No hay usuarios registrados.</td></tr>
+              <tr><td colSpan="6" style={{ padding: '2rem', textAlign: 'center' }}>No hay usuarios registrados.</td></tr>
             ) : users.map(u => (
               <tr key={u.uid} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={{ padding: '1rem' }}>
                   <div style={{ fontWeight: 'bold' }}>{u.name || 'Sin Nombre'}</div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{u.email}</div>
+                </td>
+                <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
+                  {u.identity && <div><strong>DNI:</strong> {u.identity}</div>}
+                  {u.phone && <div><strong>Tel:</strong> {u.phone}</div>}
+                  {u.address && <div style={{ color: 'var(--text-secondary)' }}>{u.address}</div>}
+                  {(!u.identity && !u.phone) && <span style={{ color: 'var(--text-secondary)' }}>N/A</span>}
                 </td>
                 <td style={{ padding: '1rem' }}>
                   <span className="badge" style={{ backgroundColor: 'var(--primary-color)', color: 'white' }}>
@@ -259,6 +272,20 @@ export default function Colaboradores() {
                 <label>Correo Electrnico</label>
                 <input type="email" required value={newEmail} onChange={e => setNewEmail(e.target.value)} />
               </div>
+              
+              <div className="form-group">
+                <label>Nmero de Identidad</label>
+                <input type="text" placeholder="Ej. 0801-1990-12345" value={newIdentity} onChange={e => setNewIdentity(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Telfono</label>
+                <input type="tel" placeholder="Ej. 9988-7766" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Direccin Exacta</label>
+                <textarea rows="2" placeholder="Direccin de residencia..." value={newAddress} onChange={e => setNewAddress(e.target.value)}></textarea>
+              </div>
+
               <div className="form-group">
                 <label>Rol Inicial (Plantilla de Permisos)</label>
                 <select value={newRole} onChange={e => setNewRole(e.target.value)}>
