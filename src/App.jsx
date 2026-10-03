@@ -41,10 +41,15 @@ function ProtectedRoute({ children, moduleName }) {
     return <Navigate to="/" replace />;
   }
 
-  // Validacin de mdulo (Granular Permissions)
+  // Validacion de modulo (Granular Permissions)
   if (moduleName && !hasPermission(moduleName)) {
-    // Si no tiene permiso, lo mandamos al dashboard (o al login si ni el dashboard tiene)
-    return <Navigate to="/" replace />;
+    // En lugar de redirigir a "/", mostramos un mensaje de Acceso Denegado para evitar loops infinitos
+    return (
+      <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-color)' }}>
+        <h2>Acceso Denegado</h2>
+        <p style={{ color: 'var(--text-secondary)' }}>No tienes permiso para ver este mdulo.</p>
+      </div>
+    );
   }
 
   return children;
