@@ -1907,9 +1907,10 @@ export default function POS() {
       {showCheckoutModal && (
         <div className="modal-overlay" style={{zIndex: 110}}>
           <div className="modal-card card" style={{maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto'}}>
-            <h2 style={{borderBottom: '2px solid var(--accent-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem'}}>
-              🛒 Checkout de la Orden
-            </h2>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--accent-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem'}}>
+                <h2 style={{margin: 0}}>🛒 Checkout de la Orden</h2>
+                <button className="icon-btn" onClick={() => setShowCheckoutModal(false)}>❌</button>
+              </div>
             
             <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
               
