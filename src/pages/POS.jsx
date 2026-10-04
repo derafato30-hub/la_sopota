@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import SuperAdminAuthModal from '../components/SuperAdminAuthModal';
-import { collection, getDocs, addDoc, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, orderBy, limit, addDoc, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
@@ -104,37 +104,24 @@ export default function POS() {
 
   useEffect(() => {
     fetchData();
-    loadOrders();
-  }, []);
-
-  const loadOrders = async () => {
-    try {
-      const snap = await getDocs(collection(db, 'orders'));
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+    const qOrders = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(300));
+    const unsub = onSnapshot(qOrders, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
-      const hoy = new Date();
-      hoy.setHours(0,0,0,0);
-
-      // Filtrar órdenes: activas o entregadas hoy
       setActiveOrders(data.filter(o => {
         const isSettled = o.estadoEntrega === 'ENTREGADO' && (o.estadoPago === 'PAGADO' || o.estadoPago === 'CREDITO' || o.estadoPago === 'CONSUMO_PROPIO');
         if (!isSettled) return true;
-        // Si está entregada y resuelta, checar si es de hoy
-        if (o.createdAt?.toDate) {
-           return o.createdAt.toDate().getTime() >= hoy.getTime();
-        }
+        if (o.createdAt?.toDate) return o.createdAt.toDate().getTime() >= hoy.getTime();
         return false;
       }));
-
-      // Calcular inventario de sopas y carnes vendidas hoy
+      
       const sold = {};
       const soldC = {};
       data.forEach(o => {
         if (o.createdAt?.toDate && o.createdAt.toDate().getTime() >= hoy.getTime() && o.estadoCocina !== 'BORRADOR') {
           (o.items || []).forEach(item => {
-            if (item.type === 'sopa' || item.name.toLowerCase().includes('sopa')) {
-              sold[item.id] = (sold[item.id] || 0) + item.qty;
-            }
+            if (item.type === 'sopa' || item.name.toLowerCase().includes('sopa')) sold[item.id] = (sold[item.id] || 0) + item.qty;
             if (item.type === 'menu_dia' && item.carneId) {
               const qtyMedios = item.dmSize === 'COMPLETO' ? (item.qty * 1.5) : (item.qty * 1);
               soldC[item.carneId] = (soldC[item.carneId] || 0) + qtyMedios;
@@ -144,9 +131,11 @@ export default function POS() {
       });
       setSoldSoups(sold);
       setSoldCarnes(soldC);
+    });
+    return () => unsub();
+  }, []);
 
-    } catch(e) { console.error(e); }
-  };
+  const loadOrders = async () => { /* Now using onSnapshot realtime */ };
 
   const updateOrderStatus = async (orderId, field, value) => {
     try {
@@ -784,7 +773,8 @@ export default function POS() {
       <div className="kanban-board" style={{display: 'flex', gap: '1rem', padding: '1rem', flex: 1, overflowX: 'auto', alignItems: 'flex-start'}}>
         
         {/* COLUMNA 1: Borradores */}
-        <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
+          {activeOrders.filter(o => o.estadoCocina === 'BORRADOR').length > 0 && (
+          <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
           <h3 style={{borderBottom: '2px solid var(--text-secondary)', paddingBottom: '0.5rem', marginBottom: '1rem'}}>📝 Borradores</h3>
           <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
             {activeOrders.filter(o => o.estadoCocina === 'BORRADOR').map(o => (
@@ -821,8 +811,9 @@ export default function POS() {
               </div>
             ))}
             {activeOrders.filter(o => o.estadoCocina === 'BORRADOR').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>No hay borradores.</p>}
+            </div>
           </div>
-        </div>
+          )}
 
         {/* COLUMNA 2: En Cocina */}
         <div className="kanban-col card" style={{minWidth: '320px', flex: 1, backgroundColor: 'rgba(255,255,255,0.02)'}}>
@@ -1870,9 +1861,13 @@ export default function POS() {
                 }
                 
                 await logAuditAction('DESPACHAR_ORDEN', 'POS', `Orden despachada. Repartidor: ${driverName || 'No especificado'}`, currentUser);
-                setShowDispatchModal(false);
-                if (dispatchOrder.estadoPago === 'PENDIENTE') {
-                  setUnpaidWarningOrder(dispatchOrder);
+                  setShowDispatchModal(false);
+                  
+                  // Update local object so the modal sees the fresh driverPaidFromRegister flag
+                  const freshOrder = { ...dispatchOrder, driverPaidFromRegister: (dispatchOrder.deliveryFee > 0 && payDriverFromRegister) };
+
+                  if (dispatchOrder.estadoPago === 'PENDIENTE') {
+                    setUnpaidWarningOrder(freshOrder);
                 } else {
                   loadOrders();
                 }
