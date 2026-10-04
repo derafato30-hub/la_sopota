@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Smartphone, Save, Copy } from 'lucide-react';
 import { generateSecret, verifySync, generateURI } from 'otplib';
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
@@ -13,6 +13,8 @@ export default function TwoFactorSetupModal({ currentUser, onComplete, onCancel 
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    console.log('TwoFactorSetupModal mounted!');
+    try {
     // Generar un secreto nico al abrir el modal
     const newSecret = generateSecret();
     setSecret(newSecret);
