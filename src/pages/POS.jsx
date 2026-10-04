@@ -2123,6 +2123,30 @@ export default function POS() {
           </div>
         </div>
       )}
+
+      {/* SUPER ADMIN MODAL */}
+      {superAuthAction && (
+        
+    
+      {/* SUPER ADMIN MODAL */}
+      {superAuthAction && (
+        
+    
+      {/* SUPER ADMIN MODAL */}
+      {superAuthAction && (
+        <SuperAdminAuthModal
+          currentUser={currentUser}
+          onCancel={() => setSuperAuthAction(null)}
+          onSuccess={() => {
+            if (superAuthAction.type === 'EDIT_ORDER') {
+              handleEditOrder(superAuthAction.order);
+            } else if (superAuthAction.type === 'EDIT_PAYMENT') {
+              setPaymentModalOrder(superAuthAction.order);
+            }
+            setSuperAuthAction(null);
+          }}
+        />
+      )}
     </div>
   );
 }
