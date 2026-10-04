@@ -1,4 +1,15 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+
+// 1. Remove 2FA from Colaboradores
+let fColab = fs.readFileSync('src/pages/Colaboradores.jsx', 'utf8');
+fColab = fColab.replace(/import TwoFactorSetupModal from '\.\.\/components\/TwoFactorSetupModal';\n?/, '');
+fColab = fColab.replace(/const \[show2FAModal, setShow2FAModal\] = useState\(false\);\n?/, '');
+fColab = fColab.replace(/\{u\.twoFactorSecret \? \([\s\S]*?<\/button>\n                  \)\}/g, '');
+fColab = fColab.replace(/\{\/\* 2FA SETUP MODAL \*\/\}[\s\S]*?<\/TwoFactorSetupModal>\n      \)\}/, '');
+fs.writeFileSync('src/pages/Colaboradores.jsx', fColab);
+
+// 2. Simplify SuperAdminAuthModal to only use Password
+const modalJSX = `import React, { useState } from 'react';
 import { X, ShieldAlert, Lock } from 'lucide-react';
 import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { toast } from 'sonner';
@@ -65,3 +76,9 @@ export default function SuperAdminAuthModal({ onSuccess, onCancel, currentUser }
     </div>
   );
 }
+`;
+fs.writeFileSync('src/components/SuperAdminAuthModal.jsx', modalJSX);
+fs.rmSync('src/components/TwoFactorSetupModal.jsx', { force: true });
+fs.rmSync('src/utils/totp.js', { force: true });
+
+console.log('Removed 2FA, kept Password Re-Auth');

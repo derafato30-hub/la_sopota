@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { generarPropuestaMenuIA } from '../utils/aiService';

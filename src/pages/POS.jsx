@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import SuperAdminAuthModal from '../components/SuperAdminAuthModal';
+import { useAuth } from '../context/AuthContext';
 import { collection, getDocs, addDoc, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -82,6 +84,8 @@ export default function POS() {
   // Client Info Modal
   const [showClientInfoModal, setShowClientInfoModal] = useState(false);
   const [clientInfoData, setClientInfoData] = useState(null);
+  const [superAuthAction, setSuperAuthAction] = useState(null);
+  const { currentUser, hasPermission } = useAuth();
   const [editingClientField, setEditingClientField] = useState(null);
   const [clientEditValue, setClientEditValue] = useState('');
   // States for variations modal
@@ -978,6 +982,12 @@ export default function POS() {
                   L. {o.total.toFixed(2)} | Pago: <strong>{o.estadoPago}</strong>
                 </div>
                 {o.invoiceId && <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>Fac: {o.invoiceId}</div>}
+                  {hasPermission('SUPERUSUARIO') && (
+                    <div style={{display: 'flex', gap: '0.5rem', marginTop: '0.5rem'}}>
+                      <button className="btn-secondary" style={{flex: 1, padding: '0.4rem', border: '1px solid #FF9800', color: '#FF9800'}} onClick={() => setSuperAuthAction({ type: 'EDIT_ORDER', order: o })}>Editar Orden</button>
+                      <button className="btn-secondary" style={{flex: 1, padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => setSuperAuthAction({ type: 'EDIT_PAYMENT', order: o })}>Editar Pago</button>
+                    </div>
+                  )}
               </div>
             ))}
             {activeOrders.filter(o => o.estadoEntrega === 'ENTREGADO').length === 0 && <p style={{color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.9rem'}}>Sin entregas hoy.</p>}

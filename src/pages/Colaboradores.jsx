@@ -7,7 +7,7 @@ import { collection, query, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'f
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth as primaryAuth } from '../firebase';
-import TwoFactorSetupModal from '../components/TwoFactorSetupModal';
+
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
@@ -37,7 +37,7 @@ const MODULES = [
 
 export default function Colaboradores() {
   const { currentUser } = useAuth();
-  const [show2FAModal, setShow2FAModal] = useState(false);
+  
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
