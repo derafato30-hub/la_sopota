@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import SuperAdminAuthModal from '../components/SuperAdminAuthModal';
-import { useAuth } from '../context/AuthContext';
 import { collection, getDocs, addDoc, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +10,7 @@ import { ShoppingCart, Send, UserPlus, FileEdit, Search, Edit, Save, Bell } from
 import './POS.css';
 
 export default function POS() {
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const [items, setItems] = useState([]);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
   const [dailyMenuConfig, setDailyMenuConfig] = useState(null);
@@ -85,7 +84,6 @@ export default function POS() {
   const [showClientInfoModal, setShowClientInfoModal] = useState(false);
   const [clientInfoData, setClientInfoData] = useState(null);
   const [superAuthAction, setSuperAuthAction] = useState(null);
-  const { currentUser, hasPermission } = useAuth();
   const [editingClientField, setEditingClientField] = useState(null);
   const [clientEditValue, setClientEditValue] = useState('');
   // States for variations modal
