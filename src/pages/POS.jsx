@@ -2126,14 +2126,6 @@ export default function POS() {
 
       {/* SUPER ADMIN MODAL */}
       {superAuthAction && (
-        
-    
-      {/* SUPER ADMIN MODAL */}
-      {superAuthAction && (
-        
-    
-      {/* SUPER ADMIN MODAL */}
-      {superAuthAction && (
         <SuperAdminAuthModal
           currentUser={currentUser}
           onCancel={() => setSuperAuthAction(null)}
