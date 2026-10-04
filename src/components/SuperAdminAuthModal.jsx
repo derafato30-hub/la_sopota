@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, ShieldAlert, Lock, Smartphone } from 'lucide-react';
 import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { generateSecret, verifySync, generateURI } from 'otplib';
+import { verifySync } from '../utils/totp';
 import { auth, db } from '../firebase';
 import { toast } from 'sonner';
 
@@ -35,7 +35,7 @@ export default function SuperAdminAuthModal({ onSuccess, onCancel, currentUser }
       const secret = userDoc.data().twoFactorSecret;
       
       // 3. Verify OTP
-      const isValid = verifySync({ token: otp, secret, strategy: 'totp' });
+      const isValid = await verifySync({ token: otp, secret, strategy: 'totp' });
       
       if (!isValid) {
         toast.error('El cdigo de Authenticator es incorrecto o est vencido.');

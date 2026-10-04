@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Smartphone, Save, Copy } from 'lucide-react';
-import { generateSecret, verifySync, generateURI } from 'otplib';
+import { generateSecret, verifySync, generateURI } from '../utils/totp';
 import * as QRCode from 'qrcode';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -43,7 +43,7 @@ export default function TwoFactorSetupModal({ currentUser, onComplete, onCancel 
     
     setLoading(true);
     try {
-      const isValid = verifySync({ token: otp, secret, strategy: 'totp' });
+      const isValid = await verifySync({ token: otp, secret, strategy: 'totp' });
       
       if (!isValid) {
         toast.error('El cdigo ingresado es incorrecto. Intenta de nuevo.');
