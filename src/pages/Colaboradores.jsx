@@ -7,6 +7,8 @@ import { collection, query, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'f
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth as primaryAuth } from '../firebase';
+import TwoFactorSetupModal from '../components/TwoFactorSetupModal';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
 // Firebase config for secondary app
@@ -34,6 +36,9 @@ const MODULES = [
 ];
 
 export default function Colaboradores() {
+  const { currentUser } = useAuth();
+  const [show2FAModal, setShow2FAModal] = useState(false);
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -233,9 +238,20 @@ export default function Colaboradores() {
                 </td>
                 <td style={{ padding: '1rem' }}>
                   {u.requirePasswordChange ? (
-                    <span style={{ color: '#FF9800', fontSize: '0.85rem' }}>⚠️ Clave Temporal</span>
+                    <div style={{ color: '#FF9800', fontSize: '0.85rem', marginBottom: '0.25rem' }}>⚠️ Clave Temporal</div>
                   ) : (
-                    <span style={{ color: '#4CAF50', fontSize: '0.85rem' }}>✓ Clave Privada</span>
+                    <div style={{ color: '#4CAF50', fontSize: '0.85rem', marginBottom: '0.25rem' }}>✓ Clave Privada</div>
+                  )}
+                  {u.twoFactorSecret ? (
+                    <div style={{ color: '#9C27B0', fontSize: '0.85rem', fontWeight: 'bold' }}>🛡️ 2FA Activo</div>
+                  ) : (
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>2FA Inactivo</div>
+                  )}
+                  {u.uid === currentUser.uid && !u.twoFactorSecret && (
+                     <button onClick={() => setShow2FAModal(true)} style={{ marginTop: '0.5rem', fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Configurar 2FA</button>
+                  )}
+                  {u.uid === currentUser.uid && u.twoFactorSecret && (
+                     <button onClick={() => setShow2FAModal(true)} style={{ marginTop: '0.5rem', fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: 'transparent', color: 'var(--primary-color)', border: '1px solid var(--primary-color)', borderRadius: '4px', cursor: 'pointer' }}>Re-configurar 2FA</button>
                   )}
                 </td>
                 <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
