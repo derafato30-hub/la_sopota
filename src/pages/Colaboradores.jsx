@@ -360,6 +360,18 @@ export default function Colaboradores() {
           </div>
         </div>
       )}
+
+      {/* 2FA SETUP MODAL */}
+      {show2FAModal && (
+        <TwoFactorSetupModal 
+          currentUser={currentUser}
+          onCancel={() => setShow2FAModal(false)}
+          onComplete={(secret) => {
+            setShow2FAModal(false);
+            fetchUsers();
+          }}
+        />
+      )}
     </div>
   );
 }
