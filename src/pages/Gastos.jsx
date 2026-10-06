@@ -8,7 +8,7 @@ import { Wallet, TrendingDown, CheckSquare, History, List, X } from 'lucide-reac
 import './Gastos.css';
 
 export default function Gastos() {
-  const { currentUser, userRole } = useAuth();
+  const { currentUser, userRole, hasPermission } = useAuth();
   const [gastos, setGastos] = useState([]);
   const [cierres, setCierres] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +63,8 @@ export default function Gastos() {
       // Filtrar CAJA CHICA y por usuario (si no es admin, solo los de l)
       mappedGastos = mappedGastos.filter(g => {
         if (g.category && g.category !== 'CAJA_CHICA') return false;
-        if (userRole !== 'ADMIN' && g.createdBy !== currentUser.uid) return false;
+        const isAdmin = userRole === 'ADMIN' || userRole === 'admin' || hasPermission('*') || hasPermission('SUPERUSUARIO');
+          if (!isAdmin && g.createdBy !== currentUser.uid) return false;
         return true;
       });
       // Ordenar localmente
@@ -76,7 +77,8 @@ export default function Gastos() {
       let mappedCierres = snapCierres.docs.map(d => ({ id: d.id, ...d.data() }));
       
       // Filtrar por usuario (si no es admin)
-      if (userRole !== 'ADMIN') {
+      const isAdmin = userRole === 'ADMIN' || userRole === 'admin' || hasPermission('*') || hasPermission('SUPERUSUARIO');
+        if (!isAdmin) {
         mappedCierres = mappedCierres.filter(c => c.createdBy === currentUser.uid);
       }
       setCierres(mappedCierres.slice(0, 10)); // Mostrar solo los ltimos 10 del usuario
