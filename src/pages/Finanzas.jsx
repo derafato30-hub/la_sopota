@@ -470,7 +470,7 @@ function IATab() {
       <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', background: 'var(--bg-color)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ background: 'var(--surface-color)', padding: '1rem', borderRadius: '8px', maxWidth: '80%', marginBottom: '1rem' }}>
-            <strong style={{ color: 'var(--primary-color)' }}>Asesor IA: Hola! Soy tu Director Financiero Virtual. En futuras actualizaciones, podrs preguntarme cosas como <em>"¿Cuál fue mi día más rentable esta semana?"</em> o <em>"¿En qué se me fue más dinero ayer?"</em> y leer el Libro Mayor para responderte.
+            <strong style={{ color: 'var(--primary-color)' }}>Asesor IA:</strong> Hola! Soy tu Director Financiero Virtual. En futuras actualizaciones, podrs preguntarme cosas como <em>"¿Cuál fue mi día más rentable esta semana?"</em> o <em>"¿En qué se me fue más dinero ayer?"</em> y leer el Libro Mayor para responderte.
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
