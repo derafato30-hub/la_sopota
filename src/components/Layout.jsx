@@ -139,7 +139,7 @@ export default function Layout() {
               <TrendingUp size={20} />
               <span style={{display: 'flex', flexDirection: 'column'}}>
                 <span>Finanzas</span>
-                <span style={{fontSize: '0.7rem', color: '#ffb74d'}}>En construcción</span>
+                <span style={{fontSize: '0.7rem', color: '#4caf50'}}>Nuevo Ledger</span>
               </span>
             </Link>
           )}

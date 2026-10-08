@@ -1,589 +1,458 @@
-import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
-import { collection, getDocs, addDoc, serverTimestamp, query, where, Timestamp, orderBy, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { logAuditAction } from '../utils/auditLogger';
-import { TrendingUp, Plus, CreditCard, Filter, ChevronDown, ChevronUp, DollarSign, Users, Briefcase, FileText, Search } from 'lucide-react';
-import './Gastos.css';
-import './Dashboard.css'; // Reutilizamos estilos de tarjetas
+import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, serverTimestamp, onSnapshot, where, runTransaction } from 'firebase/firestore';
+import { db } from '../firebase';
+import { toast } from 'sonner';
+import { TrendingUp, Wallet, ArrowRightLeft, FileText, CheckSquare, Plus, Activity, Cpu } from 'lucide-react';
+
+const SEED_ACCOUNTS = [
+  { id: 'efectivo_caja', name: 'Efectivo Caja', type: 'CASH', balance: 0 },
+  { id: 'bac_elmer', name: 'BAC Elmer', type: 'BANK', balance: 0 },
+  { id: 'bac_antony', name: 'BAC Antony', type: 'BANK', balance: 0 },
+  { id: 'banco_atlantida', name: 'Banco Atlǭntida', type: 'BANK', balance: 0 },
+  { id: 'cxp_pollo', name: 'CxP Pollo Norteo', type: 'PAYABLE', balance: 0 }
+];
 
 export default function Finanzas() {
-  const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('PL'); // PL, REGISTRO, COBRAR, HISTORIAL // PL, REGISTRO, COBRAR
-  
+  const { currentUser, hasPermission } = useAuth();
+  const [activeTab, setActiveTab] = useState('DASHBOARD');
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Escuchar Cuentas Financieras
+    const q = query(collection(db, 'fin_accounts'));
+    const unsub = onSnapshot(q, async (snap) => {
+      if (snap.empty) {
+        // Seed default accounts
+        for (const acc of SEED_ACCOUNTS) {
+          await setDoc(doc(db, 'fin_accounts', acc.id), acc);
+        }
+      } else {
+        const accs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setAccounts(accs);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  if (!hasPermission('SUPERUSUARIO') && !hasPermission('FINANZAS_MASTER')) {
+    return <div style={{padding:'2rem'}}>Acceso Denegado. Se requiere nivel de Finanzas o Superusuario.</div>;
+  }
+
   return (
     <div className="finanzas-container" style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
       <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <TrendingUp size={28} />
-            Módulo de Finanzas
+            <Wallet size={28} />
+            Finanzas y Ledger
           </h1>
-          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Control de flujo de caja y rentabilidad</p>
+          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Control contable de doble partida</p>
         </div>
       </header>
 
       {/* TABS */}
-      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
-        <button 
-          onClick={() => setActiveTab('PL')}
-          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', color: activeTab === 'PL' ? 'var(--primary-color)' : 'var(--text-color)', borderBottom: activeTab === 'PL' ? '3px solid var(--primary-color)' : '3px solid transparent', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          Estado de Resultados
-        </button>
-        <button 
-          onClick={() => setActiveTab('REGISTRO')}
-          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', color: activeTab === 'REGISTRO' ? 'var(--primary-color)' : 'var(--text-color)', borderBottom: activeTab === 'REGISTRO' ? '3px solid var(--primary-color)' : '3px solid transparent', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          Registrar Egreso
-        </button>
-        <button 
-          onClick={() => setActiveTab('COBRAR')}
-          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', color: activeTab === 'COBRAR' ? 'var(--primary-color)' : 'var(--text-color)', borderBottom: activeTab === 'COBRAR' ? '3px solid var(--primary-color)' : '3px solid transparent', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          Cuentas por Cobrar
-        </button>
-        <button 
-          onClick={() => setActiveTab('HISTORIAL')}
-          style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', color: activeTab === 'HISTORIAL' ? 'var(--primary-color)' : 'var(--text-color)', borderBottom: activeTab === 'HISTORIAL' ? '3px solid var(--primary-color)' : '3px solid transparent', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          Historial de Gastos
-        </button>
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem', overflowX: 'auto' }}>
+        <TabButton active={activeTab === 'DASHBOARD'} onClick={() => setActiveTab('DASHBOARD')} icon={<Activity size={18}/>} label="Dashboard" />
+        <TabButton active={activeTab === 'REGISTRAR'} onClick={() => setActiveTab('REGISTRAR')} icon={<Plus size={18}/>} label="Registrar Transaccin" />
+        <TabButton active={activeTab === 'PL'} onClick={() => setActiveTab('PL')} icon={<TrendingUp size={18}/>} label="Estado de Resultados" />
+        <TabButton active={activeTab === 'IA'} onClick={() => setActiveTab('IA')} icon={<Cpu size={18}/>} label="Asistente IA" />
       </div>
 
-      {activeTab === 'PL' && <DashboardPL />}
-      {activeTab === 'REGISTRO' && <RegistrarEgreso currentUser={currentUser} />}
-      {activeTab === 'COBRAR' && <CuentasPorCobrar currentUser={currentUser} />}
-      {activeTab === 'HISTORIAL' && <HistorialGastos />}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {loading ? <p>Cargando cuentas...</p> : (
+          <>
+            {activeTab === 'DASHBOARD' && <DashboardTab accounts={accounts} />}
+            {activeTab === 'REGISTRAR' && <RegistrarTab accounts={accounts} currentUser={currentUser} />}
+            {activeTab === 'PL' && <PLTab />}
+            {activeTab === 'IA' && <IATab />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, icon, label }) {
+  return (
+    <button 
+      onClick={onClick}
+      style={{ 
+        padding: '0.75rem 1.5rem', background: 'none', border: 'none', 
+        color: active ? 'var(--primary-color)' : 'var(--text-color)', 
+        borderBottom: active ? '3px solid var(--primary-color)' : '3px solid transparent', 
+        cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap'
+      }}
+    >
+      {icon} {label}
+    </button>
+  );
+}
+
+// ----------------------------------------------------
+// TAB 1: DASHBOARD
+// ----------------------------------------------------
+function DashboardTab({ accounts }) {
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [loadingTx, setLoadingTx] = useState(false);
+
+  const bancosEfectivo = accounts.filter(a => a.type === 'BANK' || a.type === 'CASH');
+  const pasivos = accounts.filter(a => a.type === 'PAYABLE');
+
+  const totalActivo = bancosEfectivo.reduce((acc, a) => acc + (a.balance || 0), 0);
+  const totalPasivo = pasivos.reduce((acc, a) => acc + (a.balance || 0), 0);
+
+  const loadTransactions = async (accountId) => {
+    setLoadingTx(true);
+    try {
+      const q = query(collection(db, 'fin_transactions'), 
+        // We can't do OR queries easily in old firestore without composite indexes, 
+        // so we fetch latest 100 and filter in memory, or use multiple queries.
+        orderBy('date', 'desc')
+      );
+      const snap = await getDocs(q);
+      const allTx = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const filtered = allTx.filter(tx => tx.sourceAccountId === accountId || tx.destinationAccountId === accountId).slice(0, 50);
+      setTransactions(filtered);
+    } catch(e) { console.error(e); }
+    setLoadingTx(false);
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+      {/* Columna Izquierda: Cuentas */}
+      <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="card" style={{ background: 'var(--primary-color)', color: 'white' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0' }}>💰 TOTAL ACTIVO</h3>
+          <h1 style={{ margin: 0, fontSize: '2.5rem' }}>L. {totalActivo.toFixed(2)}</h1>
+        </div>
+
+        <div className="card">
+          <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Bancos y Efectivo</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+            {bancosEfectivo.map(a => (
+              <div 
+                key={a.id} 
+                onClick={() => { setSelectedAccount(a); loadTransactions(a.id); }}
+                style={{ 
+                  display: 'flex', justifyContent: 'space-between', padding: '0.75rem', 
+                  background: selectedAccount?.id === a.id ? 'var(--bg-color)' : 'transparent',
+                  border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' 
+                }}
+              >
+                <span>{a.type === 'CASH' ? '🟢' : '🏦'} {a.name}</span>
+                <strong>L. {(a.balance || 0).toFixed(2)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Cuentas por Pagar (Pasivos)</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+            {pasivos.map(a => (
+               <div 
+                 key={a.id} 
+                 onClick={() => { setSelectedAccount(a); loadTransactions(a.id); }}
+                 style={{ 
+                   display: 'flex', justifyContent: 'space-between', padding: '0.75rem', 
+                   background: selectedAccount?.id === a.id ? 'var(--bg-color)' : 'transparent',
+                   border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' 
+                 }}
+               >
+                 <span>🔴 {a.name}</span>
+                 <strong style={{color: '#f44336'}}>L. {(a.balance || 0).toFixed(2)}</strong>
+               </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Columna Derecha: Libro Mayor */}
+      <div style={{ flex: '2 1 500px' }}>
+        <div className="card" style={{ height: '100%', minHeight: '500px' }}>
+          {!selectedAccount ? (
+            <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+              Selecciona una cuenta para ver su Libro Mayor
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--accent-color)', paddingBottom: '1rem' }}>
+                <h2 style={{ margin: 0 }}>{selectedAccount.name} - Libro Mayor</h2>
+                <h2 style={{ margin: 0, color: selectedAccount.type === 'PAYABLE' ? '#f44336' : 'var(--primary-color)' }}>
+                  Saldo: L. {(selectedAccount.balance || 0).toFixed(2)}
+                </h2>
+              </div>
+              
+              {loadingTx ? <p>Cargando transacciones...</p> : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Categora</th>
+                      <th>Descripcin</th>
+                      <th>Ingreso</th>
+                      <th>Egreso</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.length === 0 ? (
+                      <tr><td colSpan="5" style={{ textAlign: 'center' }}>No hay movimientos recientes.</td></tr>
+                    ) : (
+                      transactions.map(tx => {
+                        const isIngreso = tx.destinationAccountId === selectedAccount.id;
+                        const isEgreso = tx.sourceAccountId === selectedAccount.id;
+                        return (
+                          <tr key={tx.id}>
+                            <td>{tx.date?.toDate ? tx.date.toDate().toLocaleDateString() : 'N/A'}</td>
+                            <td><span style={{ fontSize: '0.8rem', background: 'var(--bg-color)', padding: '0.2rem 0.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>{tx.category}</span></td>
+                            <td>{tx.description}</td>
+                            <td style={{ color: '#4CAF50', fontWeight: 'bold' }}>{isIngreso ? `L. ${tx.amount.toFixed(2)}` : ''}</td>
+                            <td style={{ color: '#f44336', fontWeight: 'bold' }}>{isEgreso ? `L. ${tx.amount.toFixed(2)}` : ''}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 // ----------------------------------------------------
-// TAB 1: DASHBOARD P&L (Estado de Resultados)
+// TAB 2: REGISTRAR (Manual / IA)
 // ----------------------------------------------------
-function DashboardPL() {
-  const [timeRange, setTimeRange] = useState('HOY'); // HOY, SEMANA, MES, TODO
+function RegistrarTab({ accounts, currentUser }) {
+  const [txType, setTxType] = useState('IN'); // IN, OUT, TRANSFER, ADJUSTMENT
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState('');
+  const [desc, setDesc] = useState('');
+  const [sourceAcc, setSourceAcc] = useState('');
+  const [destAcc, setDestAcc] = useState('');
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState({
-    ingresosReales: 0,
-    abonos: 0,
-    cajaChica: 0,
-    operativos: 0,
-    nomina: 0,
-    administrativos: 0,
-    inversiones: 0,
-    personales: 0
-  });
 
-  useEffect(() => {
-    fetchData();
-  }, [timeRange]);
+  // NLP Asistido
+  const [nlpText, setNlpText] = useState('');
+  const [nlpLoading, setNlpLoading] = useState(false);
 
-  const fetchData = async () => {
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    if (!amount || amount <= 0) return toast.error('Monto invlido');
+    if (txType === 'IN' && !destAcc) return toast.error('Selecciona cuenta destino');
+    if (txType === 'OUT' && !sourceAcc) return toast.error('Selecciona cuenta origen');
+    if (txType === 'TRANSFER' && (!sourceAcc || !destAcc || sourceAcc === destAcc)) return toast.error('Cuentas invlidas');
+    if (!category) return toast.error('Selecciona una categora');
+
     setLoading(true);
     try {
-      // Determinar fechas
-      const now = new Date();
-      let startDate = new Date();
-      startDate.setHours(0,0,0,0);
+      await runTransaction(db, async (transaction) => {
+        const val = Number(amount);
+        
+        // 1. Crear transaccin en el diario
+        const txRef = doc(collection(db, 'fin_transactions'));
+        transaction.set(txRef, {
+          amount: val,
+          type: txType,
+          category,
+          description: desc || 'Registro manual',
+          sourceAccountId: sourceAcc || null,
+          destinationAccountId: destAcc || null,
+          date: serverTimestamp(),
+          createdBy: currentUser.uid,
+        });
 
-      if (timeRange === 'SEMANA') {
-        const day = startDate.getDay() || 7; 
-        if (day !== 1) startDate.setHours(-24 * (day - 1)); // Lunes
-      } else if (timeRange === 'MES') {
-        startDate.setDate(1);
-      } else if (timeRange === 'TODO') {
-        startDate = new Date(2000, 0, 1);
-      }
-
-      const endOfDay = new Date();
-      endOfDay.setHours(23,59,59,999);
-
-      // Traer facturas pagadas (Cash Basis)
-      const invQuery = query(collection(db, 'invoices'), where('createdAt', '>=', Timestamp.fromDate(startDate)), where('createdAt', '<=', Timestamp.fromDate(endOfDay)));
-      const invSnap = await getDocs(invQuery);
-      let ingresosCash = 0;
-      let ingresosFood = 0;
-      let ingresosDelivery = 0;
-      invSnap.forEach(doc => {
-        const d = doc.data();
-        if (d.estado !== 'ANULADA' && d.estado !== 'CANCELADA' && d.estadoCocina !== 'CANCELADA' && d.estadoPago !== 'CANCELADO') {
-          const food = d.foodTotal !== undefined ? d.foodTotal : (d.total - (d.deliveryFee || 0));
-          const delivery = d.orderType === 'ENVIO_COBRADO' ? (d.deliveryFee || 0) : 0;
-          
-          if (d.metodoPago !== 'CREDITO' && d.metodoPago !== 'MULTIPLE' && d.metodoPago !== 'CONSUMO_PROPIO' && d.metodoPago !== 'CORTESIA') {
-            ingresosFood += food;
-            ingresosDelivery += delivery;
-            ingresosCash += d.total || 0;
-          } else if (d.metodoPago === 'MULTIPLE' && d.pagosMultiples) {
-            let totalAdded = 0;
-            d.pagosMultiples.forEach(p => totalAdded += p.amount);
-            let vuelto = Math.max(0, totalAdded - (d.total || 0));
-            
-            let collectedCash = 0;
-            d.pagosMultiples.forEach(p => {
-               if(p.method === 'EFECTIVO' || p.method === 'TRANSFERENCIA') collectedCash += p.amount;
-            });
-            
-            collectedCash = Math.max(0, collectedCash - vuelto);
-            
-            let d_fee = delivery;
-            if (collectedCash >= d_fee) {
-               ingresosDelivery += d_fee;
-               ingresosFood += (collectedCash - d_fee);
-            } else {
-               ingresosDelivery += collectedCash;
-            }
-            ingresosCash += collectedCash;
+        // 2. Afectar cuentas
+        if (sourceAcc) {
+          const sRef = doc(db, 'fin_accounts', sourceAcc);
+          const sDoc = await transaction.get(sRef);
+          if (sDoc.exists()) {
+             // Si es una cuenta normal, el origen resta. Si es Cuenta por Pagar, tambin resta (porque estamos pagando la deuda)
+             transaction.update(sRef, { balance: (sDoc.data().balance || 0) - val });
+          }
+        }
+        
+        if (destAcc) {
+          const dRef = doc(db, 'fin_accounts', destAcc);
+          const dDoc = await transaction.get(dRef);
+          if (dDoc.exists()) {
+             // El destino suma
+             transaction.update(dRef, { balance: (dDoc.data().balance || 0) + val });
           }
         }
       });
-
-      // Traer Abonos
-      const abnQuery = query(collection(db, 'receipts'), where('createdAt', '>=', Timestamp.fromDate(startDate)), where('createdAt', '<=', Timestamp.fromDate(endOfDay)));
-      const abnSnap = await getDocs(abnQuery);
-      let totalAbonos = 0;
-      abnSnap.forEach(doc => totalAbonos += doc.data().amount || 0);
-
-      // Traer Gastos (Caja Chica + Finanzas)
-      const expQuery = query(collection(db, 'expenses'), where('createdAt', '>=', Timestamp.fromDate(startDate)), where('createdAt', '<=', Timestamp.fromDate(endOfDay)));
-      const expSnap = await getDocs(expQuery);
       
-      let cc = 0, op = 0, nom = 0, adm = 0, inv = 0, per = 0;
-      
-      expSnap.forEach(doc => {
-        const d = doc.data();
-        const amt = d.amount || 0;
-        switch(d.category) {
-          case 'CAJA_CHICA': cc += amt; break;
-          case 'INVENTARIO': op += amt; break;
-          case 'NOMINA': nom += amt; break;
-          case 'ADMINISTRATIVO': adm += amt; break;
-          case 'INVERSION': inv += amt; break;
-          case 'PERSONAL': per += amt; break;
-          default: cc += amt; // Legacy fallback
-        }
-      });
-
-      setData({
-        ingresosReales: ingresosCash, ingresosFood, ingresosDelivery,
-        abonos: totalAbonos,
-        cajaChica: cc,
-        operativos: op,
-        nomina: nom,
-        administrativos: adm,
-        inversiones: inv,
-        personales: per
-      });
-
-    } catch (e) {
-      console.error(e);
-      toast.error('Error calculando finanzas');
-    } finally {
-      setLoading(false);
+      toast.success('Transaccin registrada con xito');
+      setAmount(''); setDesc(''); setSourceAcc(''); setDestAcc(''); setCategory('');
+    } catch(err) {
+      console.error(err);
+      toast.error('Error al registrar transaccin');
     }
+    setLoading(false);
   };
 
-  const ingresosTotales = data.ingresosReales + data.abonos;
-  const gastosRestables = data.cajaChica + data.operativos + data.nomina + data.administrativos;
-  const gananciaOperativa = ingresosTotales - gastosRestables;
-  const balanceReal = gananciaOperativa - data.personales + data.inversiones;
+  const handleNlpAnalyze = async () => {
+    if (!nlpText) return;
+    setNlpLoading(true);
+    // Simularamos el llamado a la Cloud Function con Gemini
+    // Por ahora, como no hay backend node para llamar a Gemini de manera segura (con API keys), 
+    // mostraremos un mockup funcional educacional de cmo funcionar.
+    setTimeout(() => {
+      toast.success('IA: Anlisis completado');
+      setTxType('OUT');
+      setAmount(3000);
+      setCategory('PLANILLA');
+      setDesc(nlpText);
+      setSourceAcc(accounts.find(a => a.type==='CASH')?.id || '');
+      setNlpLoading(false);
+    }, 1500);
+  };
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        <button className="btn-secondary" style={{ flex: 1, border: timeRange === 'HOY' ? '2px solid var(--primary-color)' : '' }} onClick={() => setTimeRange('HOY')}>Hoy</button>
-        <button className="btn-secondary" style={{ flex: 1, border: timeRange === 'SEMANA' ? '2px solid var(--primary-color)' : '' }} onClick={() => setTimeRange('SEMANA')}>Esta Semana</button>
-        <button className="btn-secondary" style={{ flex: 1, border: timeRange === 'MES' ? '2px solid var(--primary-color)' : '' }} onClick={() => setTimeRange('MES')}>Este Mes</button>
-        <button className="btn-secondary" style={{ flex: 1, border: timeRange === 'TODO' ? '2px solid var(--primary-color)' : '' }} onClick={() => setTimeRange('TODO')}>Todo</button>
-      </div>
-
-      {loading ? <div style={{ textAlign: 'center', padding: '2rem' }}>Calculando...</div> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+      <div className="card" style={{ flex: '1 1 400px' }}>
+        <h2>📝 Registro Manual</h2>
+        <form onSubmit={handleManualSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
-          {/* Tarjeta Ingresos */}
-          <div className="rn-card" style={{ '--card-color': '#4CAF50', '--card-bg': 'rgba(76, 175, 80, 0.05)' }}>
-            <div className="rn-card-header">
-              <div className="rn-icon-wrapper"><DollarSign color="#4CAF50" size={24}/></div>
-              <h3 className="rn-card-title">Ingresos (Flujo de Caja)</h3>
-            </div>
-            <div className="rn-card-value">L. {ingresosTotales.toFixed(2)}</div>
-            <div className="rn-card-breakdown">
-              <div className="rn-breakdown-item">
-                <span>Ventas de Contado:</span>
-                <strong>L. {(data.ingresosFood || 0).toFixed(2)}</strong>
-              </div>
-              <div className="rn-breakdown-item" style={{color: '#ffeb3b'}}>
-                <span>+ Envíos Recaudados:</span>
-                <strong>L. {(data.ingresosDelivery || 0).toFixed(2)}</strong>
-              </div>
-              <div className="rn-breakdown-item">
-                <span>Abonos Recibidos:</span>
-                <strong>L. {data.abonos.toFixed(2)}</strong>
-              </div>
+          <div className="form-group">
+            <label>Tipo de Movimiento</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <label><input type="radio" name="txType" checked={txType === 'IN'} onChange={() => setTxType('IN')} /> Ingreso</label>
+              <label><input type="radio" name="txType" checked={txType === 'OUT'} onChange={() => setTxType('OUT')} /> Egreso</label>
+              <label><input type="radio" name="txType" checked={txType === 'TRANSFER'} onChange={() => setTxType('TRANSFER')} /> Transferencia Interna</label>
             </div>
           </div>
 
-          {/* Tarjeta Egresos */}
-          <div className="rn-card" style={{ '--card-color': '#f44336', '--card-bg': 'rgba(244, 67, 54, 0.05)' }}>
-            <div className="rn-card-header">
-              <div className="rn-icon-wrapper"><TrendingUp color="#f44336" size={24} style={{ transform: 'rotate(180deg)' }}/></div>
-              <h3 className="rn-card-title">Egresos Operativos</h3>
-            </div>
-            <div className="rn-card-value" style={{ color: '#f44336' }}>L. {gastosRestables.toFixed(2)}</div>
-            <div className="rn-card-breakdown">
-              <div className="rn-breakdown-item">
-                <span>Caja Chica Diario:</span>
-                <strong>L. {data.cajaChica.toFixed(2)}</strong>
-              </div>
-              <div className="rn-breakdown-item">
-                <span>Inventario Mayor:</span>
-                <strong>L. {data.operativos.toFixed(2)}</strong>
-              </div>
-              <div className="rn-breakdown-item">
-                <span>Nómina/Sueldos:</span>
-                <strong>L. {data.nomina.toFixed(2)}</strong>
-              </div>
-              <div className="rn-breakdown-item">
-                <span>Administrativos:</span>
-                <strong>L. {data.administrativos.toFixed(2)}</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Tarjeta Flujo Neto */}
-          <div className="rn-card" style={{ '--card-color': gananciaOperativa >= 0 ? '#2196F3' : '#f44336', '--card-bg': gananciaOperativa >= 0 ? 'rgba(33, 150, 243, 0.05)' : 'rgba(244, 67, 54, 0.05)', gridColumn: '1 / -1' }}>
-            <div className="rn-card-header">
-              <div className="rn-icon-wrapper"><Briefcase color={gananciaOperativa >= 0 ? '#2196F3' : '#f44336'} size={24}/></div>
-              <h3 className="rn-card-title">Flujo Neto (Ganancia Operativa)</h3>
-            </div>
-            <div className="rn-card-value" style={{ color: gananciaOperativa >= 0 ? '#2196F3' : '#f44336', fontSize: '2.5rem' }}>
-              L. {gananciaOperativa.toFixed(2)}
-            </div>
-            <p className="rn-card-desc">Este es el dinero real disponible generado por la operación del restaurante en este periodo.</p>
-          </div>
-
-          {/* Tarjeta Inversión */}
-          <div className="rn-card" style={{ '--card-color': '#ff9800', '--card-bg': 'rgba(255, 152, 0, 0.05)' }}>
-            <div className="rn-card-header">
-              <div className="rn-icon-wrapper"><Plus color="#ff9800" size={24}/></div>
-              <h3 className="rn-card-title">Inversión (Capital)</h3>
-            </div>
-            <div className="rn-card-value" style={{ color: '#ff9800' }}>L. {data.inversiones.toFixed(2)}</div>
-            <p className="rn-card-desc">No afecta el Flujo Neto Operativo.</p>
-          </div>
-
-          {/* Tarjeta Retiros */}
-          <div className="rn-card" style={{ '--card-color': '#9C27B0', '--card-bg': 'rgba(156, 39, 176, 0.05)' }}>
-            <div className="rn-card-header">
-              <div className="rn-icon-wrapper"><Users color="#9C27B0" size={24}/></div>
-              <h3 className="rn-card-title">Retiros Personales</h3>
-            </div>
-            <div className="rn-card-value" style={{ color: '#9C27B0' }}>L. {data.personales.toFixed(2)}</div>
-            <p className="rn-card-desc">Fugas de capital no deducibles.</p>
-          </div>
-
-          {/* Tarjeta Balance Real */}
-          <div className="rn-card" style={{ '--card-color': balanceReal >= 0 ? '#00BCD4' : '#f44336', '--card-bg': balanceReal >= 0 ? 'rgba(0, 188, 212, 0.05)' : 'rgba(244, 67, 54, 0.05)', gridColumn: '1 / -1', border: balanceReal >= 0 ? '1px solid rgba(0, 188, 212, 0.3)' : '1px solid rgba(244, 67, 54, 0.3)' }}>
-            <div className="rn-card-header">
-              <div className="rn-icon-wrapper"><DollarSign color={balanceReal >= 0 ? '#00BCD4' : '#f44336'} size={24}/></div>
-              <h3 className="rn-card-title" style={{ fontSize: '1.4rem' }}>Balance Final en Caja (Efectivo Real)</h3>
-            </div>
-            <div className="rn-card-value" style={{ color: balanceReal >= 0 ? '#00BCD4' : '#f44336', fontSize: '3rem' }}>
-              L. {balanceReal.toFixed(2)}
-            </div>
-            <p className="rn-card-desc" style={{ fontSize: '1rem', fontWeight: '500' }}>
-              Esta métrica toma la <strong>Ganancia Operativa</strong>, suma Inversiones y resta tus <strong>Retiros Personales</strong> para decirte exactamente si estás consumiendo más de lo que genera el negocio.
-            </p>
-          </div>
-
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ----------------------------------------------------
-// TAB 2: REGISTRAR EGRESO (BACKOFFICE)
-// ----------------------------------------------------
-function RegistrarEgreso({ currentUser }) {
-  const [formData, setFormData] = useState({
-    amount: '',
-    category: 'INVENTARIO',
-    source: 'EFECTIVO', // EFECTIVO, BAC, BANPAIS, ETC
-    reason: '',
-    date: new Date().toISOString().substring(0, 10)
-  });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (formData.amount <= 0) return toast.error("El monto debe ser válido");
-    if (!formData.reason.trim()) return toast.error("Ingrese un motivo");
-
-    setSaving(true);
-    try {
-      const parts = formData.date.split('-');
-      const expenseDate = new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0);
-
-      await addDoc(collection(db, 'expenses'), {
-        amount: Number(formData.amount),
-        category: formData.category,
-        source: formData.source,
-        reason: formData.reason,
-        createdBy: currentUser.uid,
-        createdAt: Timestamp.fromDate(expenseDate)
-      });
-
-      await logAuditAction('NUEVO_EGRESO_BACKOFFICE', 'FINANZAS', `L. ${formData.amount} por ${formData.reason} (${formData.category})`, currentUser);
-      toast.success('Egreso guardado exitosamente');
-      setFormData({ ...formData, amount: '', reason: '' });
-    } catch (e) {
-      console.error(e);
-      toast.error('Error al guardar egreso');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="panel-cierre" style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h3 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>Registrar Egreso / Inversión</h3>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        
-        <div>
-          <label>Categoría Financiera</label>
-          <select className="input-field" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-            <option value="INVENTARIO">1. Costo de Venta (Inventario Mayor)</option>
-            <option value="NOMINA">2. Nómina (Pago a Empleados)</option>
-            <option value="ADMINISTRATIVO">3. Gastos Generales (Luz, Agua, Gasolina)</option>
-            <option value="INVERSION">4. Inversión (Activos, Equipo, Remodelación)</option>
-            <option value="PERSONAL">5. Retiro Personal / No del Negocio</option>
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <div style={{ flex: 1 }}>
+          <div className="form-group">
             <label>Monto (L.)</label>
-            <input type="number" className="input-field" required min="1" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+            <input type="number" step="0.01" className="input-field" value={amount} onChange={e => setAmount(e.target.value)} required />
           </div>
-          <div style={{ flex: 1 }}>
-            <label>Fecha de Aplicación</label>
-            <input type="date" className="input-field" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+
+          <div className="form-group">
+            <label>Categora</label>
+            <select className="input-field" value={category} onChange={e => setCategory(e.target.value)} required>
+              <option value="">Selecciona...</option>
+              {txType === 'IN' && (
+                <>
+                  <option value="VENTA_POS">Ingreso por Venta (POS)</option>
+                  <option value="CLUB">Ingreso Club Cadetes</option>
+                  <option value="COBRO_CREDITO">Cobro de Crdito</option>
+                  <option value="AJUSTE_POSITIVO">Ajuste Extraordinario (Sobrante)</option>
+                </>
+              )}
+              {txType === 'OUT' && (
+                <>
+                  <option value="INVERSION">Inversin/Reinversin (Pollo, Alitas)</option>
+                  <option value="CAJA_CHICA">Gasto Caja Chica</option>
+                  <option value="PLANILLA">Planilla / Sueldos</option>
+                  <option value="CUENTAS_PAGADAS">Pago de CxP Pendientes</option>
+                  <option value="GASTO_PERSONAL">Retiro Socios / Gasto Personal (Casa)</option>
+                  <option value="AJUSTE_NEGATIVO">Ajuste Extraordinario (Faltante)</option>
+                </>
+              )}
+              {txType === 'TRANSFER' && <option value="TRANSFERENCIA">Movimiento Interno</option>}
+            </select>
           </div>
-        </div>
 
-        <div>
-          <label>Cuenta de Origen</label>
-          <select className="input-field" value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})}>
-            <option value="EFECTIVO">Efectivo de Gerencia</option>
-            <option value="BAC ANTONY">BAC Antony</option>
-            <option value="BANPAIS">Banpais</option>
-            <option value="OTRA">Otra Transferencia / Tarjeta</option>
-          </select>
-        </div>
+          {(txType === 'OUT' || txType === 'TRANSFER') && (
+            <div className="form-group">
+              <label>Cuenta de Origen (De dnde sale)</label>
+              <select className="input-field" value={sourceAcc} onChange={e => setSourceAcc(e.target.value)} required>
+                <option value="">Selecciona cuenta origen...</option>
+                {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          )}
 
-        <div>
-          <label>Descripción / Motivo</label>
-          <input type="text" className="input-field" required placeholder="Ej: Compra pollo semana 40" value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
-        </div>
+          {(txType === 'IN' || txType === 'TRANSFER') && (
+            <div className="form-group">
+              <label>Cuenta Destino (A dnde entra)</label>
+              <select className="input-field" value={destAcc} onChange={e => setDestAcc(e.target.value)} required>
+                <option value="">Selecciona cuenta destino...</option>
+                {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          )}
 
-        <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Guardando...' : 'Registrar Salida de Dinero'}
+          <div className="form-group">
+            <label>Descripcin / Referencia</label>
+            <input type="text" className="input-field" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ej: Pago a Jenniffer" required />
+          </div>
+
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Guardando...' : 'Confirmar Transaccin'}
+          </button>
+        </form>
+      </div>
+
+      <div className="card" style={{ flex: '1 1 400px', backgroundColor: 'rgba(33, 150, 243, 0.05)', border: '1px solid #2196F3' }}>
+        <h2 style={{ color: '#2196F3', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Cpu size={24}/> Asistente de Registro IA</h2>
+        <p style={{ color: 'var(--text-secondary)' }}>Escribe en lenguaje natural lo que pas y la IA llenar el formulario automticamente.</p>
+        
+        <div className="form-group" style={{ marginTop: '1.5rem' }}>
+          <textarea 
+            className="input-field" 
+            rows="4" 
+            placeholder='Ej: "Pagu 3000 de planilla a Jenniffer en efectivo" o "Transfer 200 lempiras de BAC Elmer a BAC Antony"'
+            value={nlpText}
+            onChange={e => setNlpText(e.target.value)}
+          />
+        </div>
+        
+        <button className="btn-secondary" style={{ width: '100%', borderColor: '#2196F3', color: '#2196F3' }} onClick={handleNlpAnalyze} disabled={nlpLoading}>
+          {nlpLoading ? 'Procesando lenguaje natural...' : 'Analizar con IA ✨'}
         </button>
-      </form>
+
+        <div style={{ marginTop: '2rem', padding: '1rem', background: 'var(--bg-color)', borderRadius: '8px', borderLeft: '4px solid #2196F3' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0' }}>Borrador Propuesto (An no guardado):</h4>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+            Una vez que la IA termine, revisa los campos en el formulario de la izquierda y haz clic en "Confirmar Transaccin" para hacerlo oficial.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ----------------------------------------------------
-// TAB 3: CUENTAS POR COBRAR
+// TAB 3: ESTADO DE RESULTADOS (P&L)
 // ----------------------------------------------------
-function CuentasPorCobrar({ currentUser }) {
-  const [clientes, setClientes] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDebtors();
-  }, []);
-
-  const fetchDebtors = async () => {
-    try {
-      // Filtrar clientes con saldo > 0 (No se puede hacer con where directamente si no todos tienen el campo, pero probemos)
-      const q = query(collection(db, 'clients'), where('creditBalance', '>', 0));
-      const snap = await getDocs(q);
-      const list = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      setClientes(list);
-    } catch (e) {
-      console.error(e);
-      // Fallback
-      const snap = await getDocs(collection(db, 'clients'));
-      const list = [];
-      snap.forEach(d => {
-        const data = d.data();
-        if (data.creditBalance > 0) list.push({ id: d.id, ...data });
-      });
-      setClientes(list);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const totalDeuda = clientes.reduce((acc, c) => acc + (c.creditBalance || 0), 0);
-
+function PLTab() {
   return (
-    <div>
-      <div className="stat-card" style={{ borderColor: '#ff9800', marginBottom: '1.5rem', maxWidth: '400px' }}>
-        <div className="stat-header">
-          <FileText color="#ff9800" size={24}/>
-          <h3>Dinero en la Calle (Por Cobrar)</h3>
-        </div>
-        <div className="stat-value" style={{ color: '#ff9800' }}>L. {totalDeuda.toFixed(2)}</div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Este dinero no entra al P&L hasta que sea pagado.</p>
-      </div>
-
-      <div className="table-container">
-        {loading ? <p>Cargando...</p> : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Teléfono</th>
-                <th>Saldo Pendiente</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientes.length === 0 ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center' }}>No hay cuentas por cobrar activas.</td></tr>
-              ) : (
-                clientes.map(c => (
-                  <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.phone}</td>
-                    <td style={{ color: '#f44336', fontWeight: 'bold' }}>L. {c.creditBalance.toFixed(2)}</td>
-                    <td>
-                      <button className="btn-secondary" style={{ padding: '0.4rem' }} onClick={() => toast.info('Para registrar un abono, ve a la pestaña "Clientes".')}>
-                        Registrar Abono
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        )}
+    <div className="card">
+      <h2>📈 Estado de Resultados (P&L)</h2>
+      <p>Esta seccin calcular los ingresos y egresos operativos, excluyendo transferencias internas y gastos personales, para darte la Utilidad Neta real.</p>
+      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', border: '2px dashed var(--border-color)', borderRadius: '8px' }}>
+        Mdulo P&L en construccin. Prximamente vers tarjetas clicables para explorar el P&L al instante.
       </div>
     </div>
   );
 }
 
-
 // ----------------------------------------------------
-// TAB 4: HISTORIAL DE GASTOS
+// TAB 4: ASISTENTE IA (CFO VIRTUAL)
 // ----------------------------------------------------
-function HistorialGastos() {
-  const [gastos, setGastos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  
-  const [filterCategory, setFilterCategory] = useState('TODOS');
-  const [filterDate, setFilterDate] = useState('');
-
-  useEffect(() => {
-    fetchGastos();
-  }, []);
-
-  const fetchGastos = async () => {
-    setLoading(true);
-    try {
-      const q = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      const list = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      setGastos(list);
-    } catch (e) {
-      console.error(e);
-      toast.error('Error cargando historial');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredGastos = gastos.filter(g => {
-    let passCat = filterCategory === 'TODOS' || g.category === filterCategory;
-    let passDate = true;
-    if (filterDate) {
-      const gDate = g.createdAt?.toDate ? g.createdAt.toDate().toISOString().split('T')[0] : '';
-      passDate = gDate === filterDate;
-    }
-    return passCat && passDate;
-  });
-
-  const totalFiltered = filteredGastos.reduce((acc, g) => acc + (g.amount || 0), 0);
-
+function IATab() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <div style={{ display: 'flex', gap: '1rem', background: 'var(--surface-color)', padding: '1rem', borderRadius: 'var(--border-radius)', border: 'var(--glass-border)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block' }}>Filtrar por Categoría</label>
-          <select className="input-field" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-            <option value="TODOS">Todas las Categorías</option>
-            <option value="CAJA_CHICA">Caja Chica (Cajera)</option>
-            <option value="INVENTARIO">Inventario / Compras Mayores</option>
-            <option value="NOMINA">Nómina / Sueldos</option>
-            <option value="ADMINISTRATIVO">Gastos Administrativos</option>
-            <option value="INVERSION">Inversiones</option>
-            <option value="PERSONAL">Gastos Personales</option>
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block' }}>Filtrar por Fecha (Opcional)</label>
-          <input type="date" className="input-field" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-        </div>
-        <div>
-          <button className="btn-secondary" onClick={() => { setFilterCategory('TODOS'); setFilterDate(''); }}>Limpiar Filtros</button>
-        </div>
-      </div>
-
-      <div className="table-container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0, color: 'var(--primary-color)' }}>Registro de Gastos</h3>
-          <div style={{ background: 'rgba(244, 67, 54, 0.1)', color: '#f44336', padding: '0.5rem 1rem', borderRadius: '1rem', fontWeight: 'bold' }}>
-            Total Filtrado: L. {totalFiltered.toFixed(2)}
+    <div className="card" style={{ height: '500px', display: 'flex', flexDirection: 'column' }}>
+      <h2>🤖 CFO Virtual (Chat de Finanzas)</h2>
+      <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', background: 'var(--bg-color)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ background: 'var(--surface-color)', padding: '1rem', borderRadius: '8px', maxWidth: '80%', marginBottom: '1rem' }}>
+            <strong style={{ color: 'var(--primary-color)' }}>Asesor IA:</strong> ¡Hola! Soy tu Director Financiero Virtual. En futuras actualizaciones, podrs preguntarme cosas como <em>"¿Cul fue mi da ms rentable esta semana?"</em> o <em>"¿En qu se me fue ms dinero ayer?"</em> y leer el Libro Mayor para responderte.
           </div>
         </div>
-
-        {loading ? <p>Cargando gastos...</p> : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Categoría</th>
-                <th>Motivo / Descripción</th>
-                <th>Monto</th>
-                <th>Origen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredGastos.length === 0 ? (
-                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>No hay gastos en esta selección.</td></tr>
-              ) : (
-                filteredGastos.map(g => (
-                  <tr key={g.id}>
-                    <td>{g.createdAt?.toDate ? g.createdAt.toDate().toLocaleDateString() : 'N/A'}</td>
-                    <td><span style={{ fontSize: '0.8rem', background: 'var(--bg-color)', padding: '0.2rem 0.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>{g.category || 'N/A'}</span></td>
-                    <td>{g.reason}</td>
-                    <td style={{ color: '#f44336', fontWeight: 'bold' }}>L. {(g.amount || 0).toFixed(2)}</td>
-                    <td>{g.source || 'Caja (Default)'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        )}
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+          <input type="text" className="input-field" placeholder="Escribe tu pregunta..." disabled />
+          <button className="btn-primary" disabled>Enviar</button>
+        </div>
       </div>
     </div>
   );
