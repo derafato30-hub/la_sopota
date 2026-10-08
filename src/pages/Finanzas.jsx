@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, setDoc, serverTimestamp, onSnapshot, where, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TrendingUp, Wallet, ArrowRightLeft, FileText, CheckSquare, Plus, Activity, Cpu } from 'lucide-react';
 
 const SEED_ACCOUNTS = [
