@@ -291,7 +291,7 @@ function RegistrarTab({ accounts, currentUser }) {
     try {
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash", 
+        model: "gemini-flash-latest", 
         generationConfig: { responseMimeType: "application/json" } 
       });
 
