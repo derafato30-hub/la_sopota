@@ -324,7 +324,21 @@ function RegistrarTab({ accounts, currentUser }) {
       Texto del usuario a analizar: "${nlpText}"
       `;
 
-      const result = await model.generateContent(prompt);
+      let result;
+      try {
+        result = await model.generateContent(prompt);
+      } catch (err) {
+        if (err.message && err.message.includes('503')) {
+          console.warn('Servidores de Google saturados (503). Intentando con el modelo de respaldo (gemini-pro-latest)...');
+          model = genAI.getGenerativeModel({ 
+            model: "gemini-pro-latest", 
+            generationConfig: { responseMimeType: "application/json" } 
+          });
+          result = await model.generateContent(prompt);
+        } else {
+          throw err;
+        }
+      }
       const text = result.response.text();
       const data = JSON.parse(text);
 
