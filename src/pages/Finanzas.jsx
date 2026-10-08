@@ -290,7 +290,7 @@ function RegistrarTab({ accounts, currentUser }) {
     setNlpLoading(true);
     try {
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ 
+      let model = genAI.getGenerativeModel({ 
         model: "gemini-flash-latest", 
         generationConfig: { responseMimeType: "application/json" } 
       });
