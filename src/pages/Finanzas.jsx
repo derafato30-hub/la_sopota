@@ -65,9 +65,9 @@ export default function Finanzas() {
 
   return (
     <div className="finanzas-container" style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
-      <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItemás: 'center' }}>
         <div>
-          <h1 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h1 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItemás: 'center', gap: '0.5rem' }}>
             <Wallet size={28} />
             Finanzas y Ledger
           </h1>
@@ -107,7 +107,7 @@ function TabButton({ active, onClick, icon, label }) {
         padding: '0.75rem 1.5rem', background: 'none', border: 'none', 
         color: active ? 'var(--primary-color)' : 'var(--text-color)', 
         borderBottom: active ? '3px solid var(--primary-color)' : '3px solid transparent', 
-        cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap'
+        cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItemás: 'center', gap: '0.5rem', whiteSpace: 'nowrap'
       }}
     >
       {icon} {label}
@@ -199,12 +199,12 @@ function DashboardTab({ accounts }) {
       <div style={{ flex: '2 1 500px' }}>
         <div className="card" style={{ height: '100%', minHeight: '500px' }}>
           {!selectedAccount ? (
-            <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', height: '100%', alignItemás: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
               Selecciona una cuenta para ver su Libro Mayor
             </div>
           ) : (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--accent-color)', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItemás: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--accent-color)', paddingBottom: '1rem' }}>
                 <h2 style={{ margin: 0 }}>{selectedAccount.name} - Libro Mayor</h2>
                 <h2 style={{ margin: 0, color: selectedAccount.type === 'PAYABLE' ? '#f44336' : 'var(--primary-color)' }}>
                   Saldo: L. {(selectedAccount.balance || 0).toFixed(2)}
@@ -417,7 +417,7 @@ function RegistrarTab({ accounts, currentUser }) {
       </div>
 
       <div className="card" style={{ flex: '1 1 400px', backgroundColor: 'rgba(33, 150, 243, 0.05)', border: '1px solid #2196F3' }}>
-        <h2 style={{ color: '#2196F3', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Cpu size={24}/> Asistente de Registro IA</h2>
+        <h2 style={{ color: '#2196F3', display: 'flex', alignItemás: 'center', gap: '0.5rem' }}><Cpu size={24}/> Asistente de Registro IA</h2>
         <p style={{ color: 'var(--text-secondary)' }}>Escribe en lenguaje natural lo que pas y la IA llenar el formulario automáticamente.</p>
         
         <div className="form-group" style={{ marginTop: '1.5rem' }}>
@@ -483,199 +483,282 @@ function IATab() {
 }
 
 
+
 // ----------------------------------------------------
 // TAB: CUENTAS POR PAGAR (CXP)
 // ----------------------------------------------------
 function CxPTab({ accounts, currentUser }) {
   const [showNewCxP, setShowNewCxP] = useState(false);
-  const [newCxPName, setNewCxPName] = useState('');
-  const [newCxPFreq, setNewCxPFreq] = useState('MENSUAL'); // UNICA, SEMANAL, MENSUAL
+  
+  // New Debt Form State
+  const [debtName, setDebtName] = useState('');
+  const [debtType, setDebtType] = useState('PRODUCTO'); // PRODUCTO, EFECTIVO
+  const [debtAmount, setDebtAmount] = useState('');
+  const [destBank, setDestBank] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [frequency, setFrequency] = useState('UNICA'); // UNICA, SEMANAL, MENSUAL, CUOTAS
   const [loading, setLoading] = useState(false);
 
-  // Formularios de pago/deuda
-  const [activeForm, setActiveForm] = useState(null); // 'DEBT' o 'PAY'
-  const [selectedCxP, setSelectedCxP] = useState('');
-  const [selectedBank, setSelectedBank] = useState('');
-  const [amount, setAmount] = useState('');
-  const [desc, setDesc] = useState('');
+  // Modal State
+  const [selectedDebt, setSelectedDebt] = useState(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [sourceBank, setSourceBank] = useState('');
+  const [payLoading, setPayLoading] = useState(false);
 
-  const pasivos = accounts.filter(a => a.type === 'PAYABLE');
+  const pasivos = accounts.filter(a => a.type === 'PAYABLE' && a.balance > 0);
 
-  const handleCreateCxP = async (e) => {
+  const handleCreateDebt = async (e) => {
     e.preventDefault();
-    if (!newCxPName.trim()) return;
-    setLoading(true);
-    try {
-      const id = 'cxp_' + newCxPName.trim().toLowerCase().replace(/\s+/g, '_');
-      await setDoc(doc(db, 'fin_accounts', id), {
-        name: 'CxP ' + newCxPName.trim(),
-        type: 'PAYABLE',
-        frequency: newCxPFreq,
-        balance: 0
-      });
-      toast.success('Cuenta por Pagar creadía eéxitosamente');
-      setShowNewCxP(false);
-      setNewCxPName('');
-    } catch (e) {
-      console.error(e);
-      toast.error('Error al crear la cuenta');
-    }
-    setLoading(false);
-  };
-
-  const handleTransaction = async (e) => {
-    e.preventDefault();
-    if (!amount || amount <= 0) return toast.error('Monto inválido');
-    if (!selectedCxP) return toast.error('Selecciona una cuenta por pagar');
-    if (!selectedBank) return toast.error('Selecciona una cuenta origen/destino');
+    if (!debtName.trim() || !debtAmount || debtAmount <= 0) return toast.error('Datos inválidos');
+    if (debtType === 'EFECTIVO' && !destBank) return toast.error('Debes seleccionar a qué cuenta entró el efectivo del prstamo');
 
     setLoading(true);
     try {
       await runTransaction(db, async (transaction) => {
-        const val = Number(amount);
-        const txRef = doc(collection(db, 'fin_transactions'));
+        const val = Number(debtAmount);
+        const debtId = 'cxp_' + Date.now(); // Unique ID for each debt
+        const debtRef = doc(db, 'fin_accounts', debtId);
         
-        let source, dest, category, txType;
-
-        if (activeForm === 'DEBT') {
-          // Adquirir Deuda: Aumenta CxP y Aumenta Efectivo (Préstamo) o Inventario (Crdito de Pollo)
-          // Contablemente: El origen es CxP, el destino es Efectivo
-          txType = 'IN';
-          category = 'ADQUISICION_DEUDA';
-          source = selectedCxP; // El pasivo nos día el dinero
-          dest = selectedBank; // Entra a nuestro banco
-        } else {
-          // Pagar Deuda: Disminuye Banco y Disminuye CxP
-          // Contablemente: El origen es Banco, el destino es CxP
-          txType = 'OUT';
-          category = 'PAGO_DEUDA';
-          source = selectedBank;
-          dest = selectedCxP;
-        }
-
-        transaction.set(txRef, {
-          amount: val,
-          type: txType,
-          category,
-          description: desc || (activeForm === 'DEBT' ? 'Adquisición de deuda' : 'Pago de deuda'),
-          sourceAccountId: source,
-          destinationAccountId: dest,
-          date: serverTimestamp(),
-          createdBy: currentUser.uid,
+        // 1. Crear la cuenta por pagar (La Deuda)
+        transaction.set(debtRef, {
+          name: debtName.trim(),
+          type: 'PAYABLE',
+          debtType,
+          originalAmount: val,
+          balance: val,
+          dueDate: dueDate || null,
+          frequency,
+          createdAt: serverTimestamp(),
+          createdBy: currentUser.uid
         });
 
-        // Modificar cuentas
-        const cxpRef = doc(db, 'fin_accounts', selectedCxP);
-        const cxpDoc = await transaction.get(cxpRef);
-        const bankRef = doc(db, 'fin_accounts', selectedBank);
-        const bankDoc = await transaction.get(bankRef);
+        const txRef = doc(collection(db, 'fin_transactions'));
 
-        if (activeForm === 'DEBT') {
-          // Sube la deudía y sube el banco
-          transaction.update(cxpRef, { balance: (cxpDoc.data().balance || 0) + val });
-          transaction.update(bankRef, { balance: (bankDoc.data().balance || 0) + val });
+        // 2. Si es PRSTAMO EN EFECTIVO, el dinero entra a un banco
+        if (debtType === 'EFECTIVO') {
+          const bankRef = doc(db, 'fin_accounts', destBank);
+          const bankDoc = await transaction.get(bankRef);
+          if (bankDoc.exists()) {
+            transaction.update(bankRef, { balance: (bankDoc.data().balance || 0) + val });
+          }
+          
+          transaction.set(txRef, {
+            amount: val,
+            type: 'IN',
+            category: 'ADQUISICION_DEUDA',
+            description: 'Préstamo: ' + debtName.trim(),
+            sourceAccountId: debtId,
+            destinationAccountId: destBank,
+            date: serverTimestamp(),
+            createdBy: currentUser.uid,
+          });
         } else {
-          // Baja la deudía y baja el banco
-          transaction.update(cxpRef, { balance: (cxpDoc.data().balance || 0) - val });
-          transaction.update(bankRef, { balance: (bankDoc.data().balance || 0) - val });
+          // Si es PRODUCTO, no entra dinero al banco, entra inventario (se considera gasto/inversin pagado por la CxP)
+          transaction.set(txRef, {
+            amount: val,
+            type: 'OUT',
+            category: 'INVERSION',
+            description: 'Deuda por Producto: ' + debtName.trim(),
+            sourceAccountId: debtId,
+            destinationAccountId: null,
+            date: serverTimestamp(),
+            createdBy: currentUser.uid,
+          });
         }
       });
-      
-      toast.success(activeForm === 'DEBT' ? 'Deudía registradía y dinero ingresado' : 'Pago registrado y deudía reducida');
-      setActiveForm(null); setAmount(''); setDesc(''); setSelectedCxP(''); setSelectedBank('');
-    } catch(err) {
-      console.error(err);
-      toast.error('Error al procesar');
+
+      toast.success('Deuda registrada exitosamente');
+      setShowNewCxP(false);
+      setDebtName(''); setDebtAmount(''); setDueDate(''); setDestBank('');
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al registrar la deuda');
     }
     setLoading(false);
   };
 
+  const handlePayDebt = async (e) => {
+    e.preventDefault();
+    if (!payAmount || payAmount <= 0) return toast.error('Monto inválido');
+    if (!sourceBank) return toast.error('Selecciona de dónde sale el dinero');
+
+    setPayLoading(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const val = Number(payAmount);
+        
+        const debtRef = doc(db, 'fin_accounts', selectedDebt.id);
+        const debtDoc = await transaction.get(debtRef);
+        const bankRef = doc(db, 'fin_accounts', sourceBank);
+        const bankDoc = await transaction.get(bankRef);
+
+        if (!debtDoc.exists() || !bankDoc.exists()) throw new Error("Cuenta no existe");
+
+        // Bajar saldo de la deuda y del banco
+        transaction.update(debtRef, { balance: (debtDoc.data().balance || 0) - val });
+        transaction.update(bankRef, { balance: (bankDoc.data().balance || 0) - val });
+
+        // Registrar el pago en el ledger
+        const txRef = doc(collection(db, 'fin_transactions'));
+        transaction.set(txRef, {
+          amount: val,
+          type: 'OUT',
+          category: 'PAGO_DEUDA',
+          description: 'Abono/Pago a Deuda: ' + selectedDebt.name,
+          sourceAccountId: sourceBank,
+          destinationAccountId: selectedDebt.id,
+          date: serverTimestamp(),
+          createdBy: currentUser.uid,
+        });
+      });
+
+      toast.success('Pago registrado exitosamente');
+      setSelectedDebt(null);
+      setPayAmount('');
+      setSourceBank('');
+    } catch(err) {
+      console.error(err);
+      toast.error('Error al procesar el pago');
+    }
+    setPayLoading(false);
+  };
+
   return (
     <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      
+      {/* PANEL IZQUIERDO: DEUDAS ACTIVAS */}
+      <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0 }}>Cuentas por Pagar Activas</h3>
-            <button className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => setShowNewCxP(!showNewCxP)}>+ Nueva</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItemás: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>Cuentas por Pagar (Activas)</h2>
+            <button className="btn-secondary" style={{ padding: '0.5rem 1rem' }} onClick={() => setShowNewCxP(!showNewCxP)}>
+              {showNewCxP ? 'Cancelar' : '+ Registrar Nueva Deuda'}
+            </button>
           </div>
           
           {showNewCxP && (
-            <form onSubmit={handleCreateCxP} style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <form onSubmit={handleCreateDebt} style={{ marginBottom: '1.5rem', padding: '1.5rem', background: 'var(--surface-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ marginTop: 0, color: 'var(--primary-color)' }}>Nueva Deuda / CxP</h3>
+              
               <div className="form-group">
-                <label>Nombre de la Entidad (A quin se le debe)</label>
-                <input type="text" className="input-field" value={newCxPName} onChange={e => setNewCxPName(e.target.value)} placeholder="Ej: Negocio Externo, Pollo Norteño" required />
+                <label>¿A quin se le debe? / Nombre de la deuda</label>
+                <input type="text" className="input-field" value={debtName} onChange={e => setDebtName(e.target.value)} placeholder="Ej: Distribuidora Pollo Norteo, Préstamo de Juan" required />
               </div>
-              <div className="form-group">
-                <label>Frecuencia de Pago</label>
-                <select className="input-field" value={newCxPFreq} onChange={e => setNewCxPFreq(e.target.value)}>
-                  <option value="UNICA">Una Sola Vez (UÚnica)</option>
-                  <option value="SEMANAL">Semanal</option>
-                  <option value="MENSUAL">Mensual</option>
-                </select>
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Monto Total (L.)</label>
+                  <input type="number" step="0.01" className="input-field" value={debtAmount} onChange={e => setDebtAmount(e.target.value)} required />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Tipo de Deuda</label>
+                  <select className="input-field" value={debtType} onChange={e => setDebtType(e.target.value)}>
+                    <option value="PRODUCTO">Producto / Inventario (Fiado)</option>
+                    <option value="EFECTIVO">Préstamo en Efectivo</option>
+                  </select>
+                </div>
               </div>
-              <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>Crear Cuenta</button>
+
+              {debtType === 'EFECTIVO' && (
+                <div className="form-group">
+                  <label>¿A qué cuenta de tu negocio entró este dinero prestado?</label>
+                  <select className="input-field" value={destBank} onChange={e => setDestBank(e.target.value)} required>
+                    <option value="">Seleccione cuenta...</option>
+                    {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Fecha Límite de Pago</label>
+                  <input type="date" className="input-field" value={dueDate} onChange={e => setDueDate(e.target.value)} required />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Frecuencia de Pago</label>
+                  <select className="input-field" value={frequency} onChange={e => setFrequency(e.target.value)}>
+                    <option value="UNICA">Pago Único</option>
+                    <option value="SEMANAL">Semanal</option>
+                    <option value="MENSUAL">Mensual</option>
+                    <option value="CUOTAS">Por Cuotas</option>
+                  </select>
+                </div>
+              </div>
+
+              <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
+                {loading ? 'Registrando...' : 'Registrar Deuda en el Sistema'}
+              </button>
             </form>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
-            {pasivos.length === 0 ? <p style={{ color: 'var(--text-secondary)' }}>No hay cuentas por pagar.</p> : null}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {pasivos.length === 0 ? <p style={{ color: 'var(--text-secondary)' }}>Felicidades! No tienes deudas pendientes.</p> : null}
             {pasivos.map(a => (
-               <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+               <div 
+                 key={a.id} 
+                 onClick={() => setSelectedDebt(a)}
+                 style={{ 
+                   display: 'flex', justifyContent: 'space-between', padding: '1rem', 
+                   border: selectedDebt?.id === a.id ? '2px solid #f44336' : '1px solid var(--border-color)', 
+                   borderRadius: '8px', cursor: 'pointer', background: selectedDebt?.id === a.id ? 'rgba(244, 67, 54, 0.05)' : 'var(--bg-color)'
+                 }}
+               >
                  <div>
-                   <div style={{ fontWeight: 'bold' }}>🔴 {a.name}</div>
-                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Frecuencia: {a.frequency || 'N/A'}</div>
+                   <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>🔴 {a.name}</div>
+                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                     {a.debtType === 'PRODUCTO' ? '📦 Deuda de Producto' : '💵 Préstamo'} • Vence: {a.dueDate || 'N/A'}
+                   </div>
                  </div>
-                 <strong style={{color: '#f44336'}}>L. {(a.balance || 0).toFixed(2)}</strong>
+                 <div style={{ textAlign: 'right' }}>
+                   <strong style={{color: '#f44336', fontSize: '1.2rem', display: 'block'}}>L. {(a.balance || 0).toFixed(2)}</strong>
+                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Falta por pagar</span>
+                 </div>
                </div>
             ))}
           </div>
         </div>
       </div>
 
+      {/* PANEL DERECHO: DETALLES Y PAGOS */}
       <div style={{ flex: '1 1 400px' }}>
-        <div className="card">
-          <h2 style={{ marginBottom: '1.5rem' }}>Operaciones de CxP</h2>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-            <button className={`btn-${activeForm === 'DEBT' ? 'primary' : 'secondary'}`} style={{ flex: 1 }} onClick={() => setActiveForm('DEBT')}>
-              📥 Registrar Deudía Entrante
-            </button>
-            <button className={`btn-${activeForm === 'PAY' ? 'primary' : 'secondary'}`} style={{ flex: 1, backgroundColor: activeForm === 'PAY' ? '#f44336' : '' }} onClick={() => setActiveForm('PAY')}>
-              💸 Pagar Deuda
-            </button>
-          </div>
-
-          {activeForm && (
-            <form onSubmit={handleTransaction} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
-                <label>Selecciona la Cuenta por Pagar</label>
-                <select className="input-field" value={selectedCxP} onChange={e => setSelectedCxP(e.target.value)} required>
-                  <option value="">Seleccione...</option>
-                  {pasivos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+        <div className="card" style={{ height: '100%', minHeight: '400px' }}>
+          {!selectedDebt ? (
+            <div style={{ display: 'flex', height: '100%', alignItemás: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+              Haz clic en una deuda de la izquierda para gestionarla.
+            </div>
+          ) : (
+            <div>
+              <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+                <h2 style={{ margin: '0 0 0.5rem 0', color: '#f44336' }}>Realizar Abono / Pago</h2>
+                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Estás a punto de abonar a la deuda: <strong>{selectedDebt.name}</strong></p>
               </div>
 
-              <div className="form-group">
-                <label>{activeForm === 'DEBT' ? '¿A qué cuenta ingres el dinero/valor?' : '¿De dónde sali el dinero para pagar?'}</label>
-                <select className="input-field" value={selectedBank} onChange={e => setSelectedBank(e.target.value)} required>
-                  <option value="">Seleccione...</option>
-                  {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+              <div style={{ background: 'var(--bg-color)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', borderLeft: '4px solid #f44336' }}>
+                <p style={{ margin: '0 0 0.5rem 0' }}><strong>Total Pendiente:</strong> L. {selectedDebt.balance?.toFixed(2)}</p>
+                <p style={{ margin: '0 0 0.5rem 0' }}><strong>Vencimiento:</strong> {selectedDebt.dueDate}</p>
+                <p style={{ margin: 0 }}><strong>Plan de Pago:</strong> {selectedDebt.frequency}</p>
               </div>
 
-              <div className="form-group">
-                <label>Monto (L.)</label>
-                <input type="number" step="0.01" className="input-field" value={amount} onChange={e => setAmount(e.target.value)} required />
-              </div>
+              <form onSubmit={handlePayDebt} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Monto a Abonar (L.)</label>
+                  <input type="number" step="0.01" className="input-field" value={payAmount} onChange={e => setPayAmount(e.target.value)} max={selectedDebt.balance} required />
+                  <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.2rem' }}>No puedes pagar más de lo que debes.</small>
+                </div>
 
-              <div className="form-group">
-                <label>Descripción / Referencia</label>
-                <input type="text" className="input-field" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ej: Pago quincenal de pollo" required />
-              </div>
+                <div className="form-group">
+                  <label>¿De dónde sale el dinero para pagar?</label>
+                  <select className="input-field" value={sourceBank} onChange={e => setSourceBank(e.target.value)} required>
+                    <option value="">Selecciona tu cuenta origen...</option>
+                    {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name} (L. {a.balance?.toFixed(2)})</option>)}
+                  </select>
+                </div>
 
-              <button type="submit" className="btn-primary" style={{ backgroundColor: activeForm === 'PAY' ? '#f44336' : '' }} disabled={loading}>
-                {loading ? 'Procesando...' : (activeForm === 'DEBT' ? 'Registrar Adquisición de Deuda' : 'Ejecutar Pago de Deuda')}
-              </button>
-            </form>
+                <button type="submit" className="btn-primary" style={{ backgroundColor: '#f44336', marginTop: '1rem' }} disabled={payLoading}>
+                  {payLoading ? 'Procesando pago...' : '💸 Confirmar Pago / Abono'}
+                </button>
+              </form>
+            </div>
           )}
         </div>
       </div>
