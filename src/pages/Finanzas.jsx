@@ -9,8 +9,8 @@ const SEED_ACCOUNTS = [
   { id: 'efectivo_caja', name: 'Efectivo Caja', type: 'CASH', balance: 0 },
   { id: 'bac_elmer', name: 'BAC Elmer', type: 'BANK', balance: 0 },
   { id: 'bac_antony', name: 'BAC Antony', type: 'BANK', balance: 0 },
-  { id: 'banco_atlantida', name: 'Banco Atlǭntida', type: 'BANK', balance: 0 },
-  { id: 'cxp_pollo', name: 'CxP Pollo Norteo', type: 'PAYABLE', balance: 0 }
+  { id: 'banco_atlantida', name: 'Banco Atlántida', type: 'BANK', balance: 0 },
+  { id: 'cxp_pollo', name: 'CxP Pollo Norteño', type: 'PAYABLE', balance: 0 }
 ];
 
 export default function Finanzas() {
@@ -19,23 +19,45 @@ export default function Finanzas() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  
   useEffect(() => {
+    let syncing = false;
     // Escuchar Cuentas Financieras
     const q = query(collection(db, 'fin_accounts'));
     const unsub = onSnapshot(q, async (snap) => {
-      if (snap.empty) {
-        // Seed default accounts
-        for (const acc of SEED_ACCOUNTS) {
-          await setDoc(doc(db, 'fin_accounts', acc.id), acc);
-        }
+      const requiredAccounts = [
+        { id: 'efectivo_caja', name: 'Efectivo Caja', type: 'CASH', balance: 0 },
+        { id: 'bac_antony', name: 'BAC Antony', type: 'BANK', balance: 0 },
+        { id: 'bac_delmy', name: 'BAC Delmy', type: 'BANK', balance: 0 },
+        { id: 'bac_elmer', name: 'BAC Elmer', type: 'BANK', balance: 0 },
+        { id: 'banpais', name: 'Banpais', type: 'BANK', balance: 0 },
+        { id: 'ficohsa', name: 'Ficohsa', type: 'BANK', balance: 0 },
+        { id: 'atlantida', name: 'Banco Atlántida', type: 'BANK', balance: 0 },
+        { id: 'occidente', name: 'Occidente', type: 'BANK', balance: 0 },
+        { id: 'davivienda', name: 'Davivienda', type: 'BANK', balance: 0 },
+      ];
+
+      let accs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const existingIds = new Set(accs.map(a => a.id));
+      
+      const missing = requiredAccounts.filter(a => !existingIds.has(a.id));
+      
+      if (missing.length > 0 && !syncing) {
+        syncing = true;
+        try {
+          for (const acc of missing) {
+            await setDoc(doc(db, 'fin_accounts', acc.id), acc, { merge: true });
+          }
+        } catch(e) { console.error("Error seeding", e); }
+        syncing = false;
       } else {
-        const accs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setAccounts(accs);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsub();
   }, []);
+
 
   if (!hasPermission('SUPERUSUARIO') && !hasPermission('FINANZAS_MASTER')) {
     return <div style={{padding:'2rem'}}>Acceso Denegado. Se requiere nivel de Finanzas o Superusuario.</div>;
@@ -57,7 +79,7 @@ export default function Finanzas() {
       <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem', overflowX: 'auto' }}>
         <TabButton active={activeTab === 'DASHBOARD'} onClick={() => setActiveTab('DASHBOARD')} icon={<Activity size={18}/>} label="Dashboard" />
         <TabButton active={activeTab === 'CXP'} onClick={() => setActiveTab('CXP')} icon={<FileText size={18}/>} label="Cuentas por Pagar" />
-        <TabButton active={activeTab === 'REGISTRAR'} onClick={() => setActiveTab('REGISTRAR')} icon={<Plus size={18}/>} label="Registrar Transaccin" />
+        <TabButton active={activeTab === 'REGISTRAR'} onClick={() => setActiveTab('REGISTRAR')} icon={<Plus size={18}/>} label="Registrar Transacción" />
         <TabButton active={activeTab === 'PL'} onClick={() => setActiveTab('PL')} icon={<TrendingUp size={18}/>} label="Estado de Resultados" />
         <TabButton active={activeTab === 'IA'} onClick={() => setActiveTab('IA')} icon={<Cpu size={18}/>} label="Asistente IA" />
       </div>
@@ -194,8 +216,8 @@ function DashboardTab({ accounts }) {
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Categora</th>
-                      <th>Descripcin</th>
+                      <th>Categoría</th>
+                      <th>Descripción</th>
                       <th>Ingreso</th>
                       <th>Egreso</th>
                     </tr>
@@ -247,7 +269,7 @@ function RegistrarTab({ accounts, currentUser }) {
 
   const handleManualSubmit = async (e) => {
     e.preventDefault();
-    if (!amount || amount <= 0) return toast.error('Monto invlido');
+    if (!amount || amount <= 0) return toast.error('Monto inválido');
     if (txType === 'IN' && !destAcc) return toast.error('Selecciona cuenta destino');
     if (txType === 'OUT' && !sourceAcc) return toast.error('Selecciona cuenta origen');
     if (txType === 'TRANSFER' && (!sourceAcc || !destAcc || sourceAcc === destAcc)) return toast.error('Cuentas invlidas');
@@ -291,7 +313,7 @@ function RegistrarTab({ accounts, currentUser }) {
         }
       });
       
-      toast.success('Transaccin registrada con xito');
+      toast.success('Transacción registradía con éxito');
       setAmount(''); setDesc(''); setSourceAcc(''); setDestAcc(''); setCategory('');
     } catch(err) {
       console.error(err);
@@ -338,7 +360,7 @@ function RegistrarTab({ accounts, currentUser }) {
           </div>
 
           <div className="form-group">
-            <label>Categora</label>
+            <label>Categoría</label>
             <select className="input-field" value={category} onChange={e => setCategory(e.target.value)} required>
               <option value="">Selecciona...</option>
               {txType === 'IN' && (
@@ -365,7 +387,7 @@ function RegistrarTab({ accounts, currentUser }) {
 
           {(txType === 'OUT' || txType === 'TRANSFER') && (
             <div className="form-group">
-              <label>Cuenta de Origen (De dnde sale)</label>
+              <label>Cuenta de Origen (De dónde sale)</label>
               <select className="input-field" value={sourceAcc} onChange={e => setSourceAcc(e.target.value)} required>
                 <option value="">Selecciona cuenta origen...</option>
                 {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -375,7 +397,7 @@ function RegistrarTab({ accounts, currentUser }) {
 
           {(txType === 'IN' || txType === 'TRANSFER') && (
             <div className="form-group">
-              <label>Cuenta Destino (A dnde entra)</label>
+              <label>Cuenta Destino (A dónde entra)</label>
               <select className="input-field" value={destAcc} onChange={e => setDestAcc(e.target.value)} required>
                 <option value="">Selecciona cuenta destino...</option>
                 {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -384,25 +406,25 @@ function RegistrarTab({ accounts, currentUser }) {
           )}
 
           <div className="form-group">
-            <label>Descripcin / Referencia</label>
+            <label>Descripción / Referencia</label>
             <input type="text" className="input-field" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ej: Pago a Jenniffer" required />
           </div>
 
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Guardando...' : 'Confirmar Transaccin'}
+            {loading ? 'Guardando...' : 'Confirmar Transacción'}
           </button>
         </form>
       </div>
 
       <div className="card" style={{ flex: '1 1 400px', backgroundColor: 'rgba(33, 150, 243, 0.05)', border: '1px solid #2196F3' }}>
         <h2 style={{ color: '#2196F3', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Cpu size={24}/> Asistente de Registro IA</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>Escribe en lenguaje natural lo que pas y la IA llenar el formulario automticamente.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Escribe en lenguaje natural lo que pas y la IA llenar el formulario automáticamente.</p>
         
         <div className="form-group" style={{ marginTop: '1.5rem' }}>
           <textarea 
             className="input-field" 
             rows="4" 
-            placeholder='Ej: "Pagu 3000 de planilla a Jenniffer en efectivo" o "Transfer 200 lempiras de BAC Elmer a BAC Antony"'
+            placeholder='Ej: "Pagué 3000 de planilla a Jenniffer en efectivo" o "Transferí 200 lempiras de BAC Elmer a BAC Antony"'
             value={nlpText}
             onChange={e => setNlpText(e.target.value)}
           />
@@ -415,7 +437,7 @@ function RegistrarTab({ accounts, currentUser }) {
         <div style={{ marginTop: '2rem', padding: '1rem', background: 'var(--bg-color)', borderRadius: '8px', borderLeft: '4px solid #2196F3' }}>
           <h4 style={{ margin: '0 0 0.5rem 0' }}>Borrador Propuesto (An no guardado):</h4>
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            Una vez que la IA termine, revisa los campos en el formulario de la izquierda y haz clic en "Confirmar Transaccin" para hacerlo oficial.
+            Una vez que la IA termine, revisa los campos en el formulario de la izquierdía y haz clic en "Confirmar Transacción" para hacerlo oficial.
           </p>
         </div>
       </div>
@@ -448,7 +470,7 @@ function IATab() {
       <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', background: 'var(--bg-color)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ background: 'var(--surface-color)', padding: '1rem', borderRadius: '8px', maxWidth: '80%', marginBottom: '1rem' }}>
-            <strong style={{ color: 'var(--primary-color)' }}>Asesor IA:</strong> ¡Hola! Soy tu Director Financiero Virtual. En futuras actualizaciones, podrs preguntarme cosas como <em>"¿Cul fue mi da ms rentable esta semana?"</em> o <em>"¿En qu se me fue ms dinero ayer?"</em> y leer el Libro Mayor para responderte.
+            <strong style={{ color: 'var(--primary-color)' }}>Asesor IA: Hola! Soy tu Director Financiero Virtual. En futuras actualizaciones, podrs preguntarme cosas como <em>"¿Cuál fue mi día más rentable esta semana?"</em> o <em>"¿En qué se me fue más dinero ayer?"</em> y leer el Libro Mayor para responderte.
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
@@ -491,7 +513,7 @@ function CxPTab({ accounts, currentUser }) {
         frequency: newCxPFreq,
         balance: 0
       });
-      toast.success('Cuenta por Pagar creada exitosamente');
+      toast.success('Cuenta por Pagar creadía eéxitosamente');
       setShowNewCxP(false);
       setNewCxPName('');
     } catch (e) {
@@ -503,7 +525,7 @@ function CxPTab({ accounts, currentUser }) {
 
   const handleTransaction = async (e) => {
     e.preventDefault();
-    if (!amount || amount <= 0) return toast.error('Monto invlido');
+    if (!amount || amount <= 0) return toast.error('Monto inválido');
     if (!selectedCxP) return toast.error('Selecciona una cuenta por pagar');
     if (!selectedBank) return toast.error('Selecciona una cuenta origen/destino');
 
@@ -516,11 +538,11 @@ function CxPTab({ accounts, currentUser }) {
         let source, dest, category, txType;
 
         if (activeForm === 'DEBT') {
-          // Adquirir Deuda: Aumenta CxP y Aumenta Efectivo (Prstamo) o Inventario (Crdito de Pollo)
+          // Adquirir Deuda: Aumenta CxP y Aumenta Efectivo (Préstamo) o Inventario (Crdito de Pollo)
           // Contablemente: El origen es CxP, el destino es Efectivo
           txType = 'IN';
           category = 'ADQUISICION_DEUDA';
-          source = selectedCxP; // El pasivo nos da el dinero
+          source = selectedCxP; // El pasivo nos día el dinero
           dest = selectedBank; // Entra a nuestro banco
         } else {
           // Pagar Deuda: Disminuye Banco y Disminuye CxP
@@ -535,7 +557,7 @@ function CxPTab({ accounts, currentUser }) {
           amount: val,
           type: txType,
           category,
-          description: desc || (activeForm === 'DEBT' ? 'Adquisicin de deuda' : 'Pago de deuda'),
+          description: desc || (activeForm === 'DEBT' ? 'Adquisición de deuda' : 'Pago de deuda'),
           sourceAccountId: source,
           destinationAccountId: dest,
           date: serverTimestamp(),
@@ -549,17 +571,17 @@ function CxPTab({ accounts, currentUser }) {
         const bankDoc = await transaction.get(bankRef);
 
         if (activeForm === 'DEBT') {
-          // Sube la deuda y sube el banco
+          // Sube la deudía y sube el banco
           transaction.update(cxpRef, { balance: (cxpDoc.data().balance || 0) + val });
           transaction.update(bankRef, { balance: (bankDoc.data().balance || 0) + val });
         } else {
-          // Baja la deuda y baja el banco
+          // Baja la deudía y baja el banco
           transaction.update(cxpRef, { balance: (cxpDoc.data().balance || 0) - val });
           transaction.update(bankRef, { balance: (bankDoc.data().balance || 0) - val });
         }
       });
       
-      toast.success(activeForm === 'DEBT' ? 'Deuda registrada y dinero ingresado' : 'Pago registrado y deuda reducida');
+      toast.success(activeForm === 'DEBT' ? 'Deudía registradía y dinero ingresado' : 'Pago registrado y deudía reducida');
       setActiveForm(null); setAmount(''); setDesc(''); setSelectedCxP(''); setSelectedBank('');
     } catch(err) {
       console.error(err);
@@ -581,12 +603,12 @@ function CxPTab({ accounts, currentUser }) {
             <form onSubmit={handleCreateCxP} style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div className="form-group">
                 <label>Nombre de la Entidad (A quin se le debe)</label>
-                <input type="text" className="input-field" value={newCxPName} onChange={e => setNewCxPName(e.target.value)} placeholder="Ej: Negocio Externo, Pollo Norteo" required />
+                <input type="text" className="input-field" value={newCxPName} onChange={e => setNewCxPName(e.target.value)} placeholder="Ej: Negocio Externo, Pollo Norteño" required />
               </div>
               <div className="form-group">
                 <label>Frecuencia de Pago</label>
                 <select className="input-field" value={newCxPFreq} onChange={e => setNewCxPFreq(e.target.value)}>
-                  <option value="UNICA">Una Sola Vez (Unica)</option>
+                  <option value="UNICA">Una Sola Vez (UÚnica)</option>
                   <option value="SEMANAL">Semanal</option>
                   <option value="MENSUAL">Mensual</option>
                 </select>
@@ -615,7 +637,7 @@ function CxPTab({ accounts, currentUser }) {
           <h2 style={{ marginBottom: '1.5rem' }}>Operaciones de CxP</h2>
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
             <button className={`btn-${activeForm === 'DEBT' ? 'primary' : 'secondary'}`} style={{ flex: 1 }} onClick={() => setActiveForm('DEBT')}>
-              📥 Registrar Deuda Entrante
+              📥 Registrar Deudía Entrante
             </button>
             <button className={`btn-${activeForm === 'PAY' ? 'primary' : 'secondary'}`} style={{ flex: 1, backgroundColor: activeForm === 'PAY' ? '#f44336' : '' }} onClick={() => setActiveForm('PAY')}>
               💸 Pagar Deuda
@@ -633,7 +655,7 @@ function CxPTab({ accounts, currentUser }) {
               </div>
 
               <div className="form-group">
-                <label>{activeForm === 'DEBT' ? '¿A qu cuenta ingres el dinero/valor?' : '¿De dnde sali el dinero para pagar?'}</label>
+                <label>{activeForm === 'DEBT' ? '¿A qué cuenta ingres el dinero/valor?' : '¿De dónde sali el dinero para pagar?'}</label>
                 <select className="input-field" value={selectedBank} onChange={e => setSelectedBank(e.target.value)} required>
                   <option value="">Seleccione...</option>
                   {accounts.filter(a => a.type !== 'PAYABLE').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -646,12 +668,12 @@ function CxPTab({ accounts, currentUser }) {
               </div>
 
               <div className="form-group">
-                <label>Descripcin / Referencia</label>
+                <label>Descripción / Referencia</label>
                 <input type="text" className="input-field" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ej: Pago quincenal de pollo" required />
               </div>
 
               <button type="submit" className="btn-primary" style={{ backgroundColor: activeForm === 'PAY' ? '#f44336' : '' }} disabled={loading}>
-                {loading ? 'Procesando...' : (activeForm === 'DEBT' ? 'Registrar Adquisicin de Deuda' : 'Ejecutar Pago de Deuda')}
+                {loading ? 'Procesando...' : (activeForm === 'DEBT' ? 'Registrar Adquisición de Deuda' : 'Ejecutar Pago de Deuda')}
               </button>
             </form>
           )}
