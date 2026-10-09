@@ -525,6 +525,20 @@ function RegistrarTab({ accounts, currentUser }) {
       await runTransaction(db, async (transaction) => {
         const val = Number(amount);
         
+        let sDoc = null, dDoc = null;
+        let sRef = null, dRef = null;
+
+        // 1. ALL READS FIRST
+        if (sourceAcc) {
+          sRef = doc(db, 'fin_accounts', sourceAcc);
+          sDoc = await transaction.get(sRef);
+        }
+        if (destAcc) {
+          dRef = doc(db, 'fin_accounts', destAcc);
+          dDoc = await transaction.get(dRef);
+        }
+
+        // 2. ALL WRITES
         const txRef = doc(collection(db, 'fin_transactions'));
         transaction.set(txRef, {
           amount: val,
@@ -537,16 +551,12 @@ function RegistrarTab({ accounts, currentUser }) {
           createdBy: currentUser.uid,
         });
 
-        if (sourceAcc) {
-          const sRef = doc(db, 'fin_accounts', sourceAcc);
-          const sDoc = await transaction.get(sRef);
-          if (sDoc.exists()) transaction.update(sRef, { balance: (sDoc.data().balance || 0) - val });
+        if (sDoc && sDoc.exists()) {
+          transaction.update(sRef, { balance: (sDoc.data().balance || 0) - val });
         }
         
-        if (destAcc) {
-          const dRef = doc(db, 'fin_accounts', destAcc);
-          const dDoc = await transaction.get(dRef);
-          if (dDoc.exists()) transaction.update(dRef, { balance: (dDoc.data().balance || 0) + val });
+        if (dDoc && dDoc.exists()) {
+          transaction.update(dRef, { balance: (dDoc.data().balance || 0) + val });
         }
       });
       
