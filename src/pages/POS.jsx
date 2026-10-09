@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import SuperAdminAuthModal from '../components/SuperAdminAuthModal';
-import { collection, getDocs, onSnapshot, query, orderBy, limit, addDoc, doc, getDoc, setDoc, serverTimestamp, updateDoc , runTransaction, query, collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, orderBy, limit, addDoc, doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction } from "firebase/firestore";
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
