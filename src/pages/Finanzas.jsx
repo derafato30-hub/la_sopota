@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, setDoc, serverTimestamp, onSnapshot, where, runTransaction } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, setDoc, serverTimestamp, onSnapshot, where, runTransaction } , limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { TrendingUp, Wallet, ArrowRightLeft, FileText, CheckSquare, Plus, Activity, Cpu } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowRightLeft, FileText, CheckSquare, Plus, Activity, History, Cpu } from 'lucide-react';
 
 const SEED_ACCOUNTS = [
   { id: 'efectivo_caja', name: 'Efectivo Caja', type: 'CASH', balance: 0 },
@@ -82,6 +82,7 @@ export default function Finanzas() {
         <TabButton active={activeTab === 'CXP'} onClick={() => setActiveTab('CXP')} icon={<FileText size={18}/>} label="Cuentas por Pagar" />
         <TabButton active={activeTab === 'REGISTRAR'} onClick={() => setActiveTab('REGISTRAR')} icon={<Plus size={18}/>} label="Registrar Transacción" />
         <TabButton active={activeTab === 'PL'} onClick={() => setActiveTab('PL')} icon={<TrendingUp size={18}/>} label="Estado de Resultados" />
+        <TabButton active={activeTab === 'HISTORIAL'} onClick={() => setActiveTab('HISTORIAL')} icon={<History size={18}/>} label="Historial (Ledger)" />
         <TabButton active={activeTab === 'IA'} onClick={() => setActiveTab('IA')} icon={<Cpu size={18}/>} label="Asistente IA" />
       </div>
 
@@ -92,6 +93,7 @@ export default function Finanzas() {
             {activeTab === 'REGISTRAR' && <RegistrarTab accounts={accounts} currentUser={currentUser} />}
             {activeTab === 'CXP' && <CxPTab accounts={accounts} currentUser={currentUser} />}
             {activeTab === 'PL' && <PLTab />}
+            {activeTab === 'HISTORIAL' && <HistorialTab accounts={accounts} />}
             {activeTab === 'IA' && <IATab />}
           </>
         )}
