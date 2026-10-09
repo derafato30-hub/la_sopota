@@ -360,6 +360,9 @@ export default function POS() {
             if (targetAccountId) {
                // Envolver en runTransaction para partida doble
                await runTransaction(db, async (t) => {
+                 const accRef = doc(db, 'fin_accounts', targetAccountId);
+                 const accDoc = await t.get(accRef); // LEER ANTES DE ESCRIBIR
+                 
                  const txRef = doc(collection(db, 'fin_transactions'));
                  t.set(txRef, {
                    amount: payment.amount,
@@ -373,8 +376,6 @@ export default function POS() {
                    metadata: { orderId: paymentModalOrder.id, invoiceId: invoiceId }
                  });
 
-                 const accRef = doc(db, 'fin_accounts', targetAccountId);
-                 const accDoc = await t.get(accRef);
                  if (accDoc.exists()) {
                    t.update(accRef, { balance: (accDoc.data().balance || 0) + payment.amount });
                  }
