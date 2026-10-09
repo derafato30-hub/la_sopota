@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, setDoc, serverTimestamp, onSnapshot, where, runTransaction } , limit } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, setDoc, serverTimestamp, onSnapshot, where, runTransaction, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { GoogleGenerativeAI } from '@google/generative-ai';
