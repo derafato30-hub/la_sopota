@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { collection, getDocs, addDoc, serverTimestamp, query, orderBy, limit, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, query, orderBy, limit, where, Timestamp, runTransaction, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { logAuditAction } from '../utils/auditLogger';
@@ -10,13 +10,14 @@ import './Gastos.css';
 export default function Gastos() {
   const { currentUser, userRole, hasPermission } = useAuth();
   const [gastos, setGastos] = useState([]);
+  const [finAccounts, setFinAccounts] = useState([]);
   const [cierres, setCierres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasPendingOrders, setHasPendingOrders] = useState(false);
 
   // Formularios
   const [showGastoModal, setShowGastoModal] = useState(false);
-  const [gastoData, setGastoData] = useState({ amount: 0, reason: '' });
+  const [gastoData, setGastoData] = useState({ amount: 0, reason: '', sourceAcc: 'efectivo_caja' });
 
   const [showCierreModal, setShowCierreModal] = useState(false);
   const [cierreData, setCierreData] = useState({ actualCash: 0, notes: '' });
@@ -56,6 +57,9 @@ export default function Gastos() {
       const startOfToday = Timestamp.fromDate(today);
 
       // Traer gastos (SOLO DE HOY)
+      const snapAcc = await getDocs(collection(db, 'fin_accounts'));
+      setFinAccounts(snapAcc.docs.map(d => ({ id: d.id, ...d.data() })));
+
       const qGastos = query(collection(db, 'expenses'), where('createdAt', '>=', startOfToday));
       const snapGastos = await getDocs(qGastos);
       let mappedGastos = snapGastos.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -228,14 +232,16 @@ export default function Gastos() {
       // Ignorar gastos del backoffice (Inversiones, Nomina, etc.)
       if (e.category && e.category !== 'CAJA_CHICA') return;
 
-      if (e.isThirdParty) {
-        if (e.reason && e.reason.toLowerCase().includes('repartidor')) {
-          stats.pagosRepartidores += e.amount;
+      if (!e.sourceAccountId || e.sourceAccountId === 'efectivo_caja') {
+        if (e.isThirdParty) {
+          if (e.reason && e.reason.toLowerCase().includes('repartidor')) {
+            stats.pagosRepartidores += e.amount;
+          } else {
+            stats.gastosTerceros += e.amount;
+          }
         } else {
-          stats.gastosTerceros += e.amount;
+          stats.gastosOperativos += e.amount;
         }
-      } else {
-        stats.gastosOperativos += e.amount;
       }
     });
 
@@ -253,17 +259,43 @@ export default function Gastos() {
     if (gastoData.amount <= 0) return toast.error("El monto debe ser válido.");
     
     try {
-      await addDoc(collection(db, 'expenses'), {
-        amount: Number(gastoData.amount),
+      const val = Number(gastoData.amount);
+      const sAcc = gastoData.sourceAcc || 'efectivo_caja';
+
+      const expRef = await addDoc(collection(db, 'expenses'), {
+        amount: val,
         reason: gastoData.reason,
         category: 'CAJA_CHICA',
+        sourceAccountId: sAcc,
         createdBy: currentUser.uid,
         createdAt: serverTimestamp()
+      });
+
+      await runTransaction(db, async (t) => {
+         const accRef = doc(db, 'fin_accounts', sAcc);
+         const accDoc = await t.get(accRef);
+         
+         const txRef = doc(collection(db, 'fin_transactions'));
+         t.set(txRef, {
+           amount: val,
+           type: 'OUT',
+           category: 'GASTO_OPERATIVO',
+           description: `Gasto POS/Caja: ${gastoData.reason}`,
+           sourceAccountId: sAcc,
+           destinationAccountId: null,
+           date: serverTimestamp(),
+           createdBy: currentUser.uid,
+           metadata: { expenseId: expRef.id }
+         });
+
+         if (accDoc.exists()) {
+           t.update(accRef, { balance: (accDoc.data().balance || 0) - val });
+         }
       });
       await logAuditAction('NUEVO_GASTO', 'CAJA', `L. ${gastoData.amount} por ${gastoData.reason}`, currentUser);
       
       setShowGastoModal(false);
-      setGastoData({ amount: 0, reason: '' });
+      setGastoData({ amount: 0, reason: '', sourceAcc: 'efectivo_caja' });
       fetchGastosYCierres();
     } catch (error) {
       console.error("Error guardando el gasto:", error);
@@ -371,6 +403,14 @@ export default function Gastos() {
           <div className="modal-card card">
             <h2>Registrar Salida / Gasto</h2>
             <form onSubmit={handleSaveGasto} className="modal-form">
+              <div className="form-group">
+                <label>Cuenta de Pago</label>
+                <select className="input-field" value={gastoData.sourceAcc} onChange={e => setGastoData({...gastoData, sourceAcc: e.target.value})}>
+                  {finAccounts.filter(a => a.type !== 'PAYABLE').map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="form-group">
                 <label>Monto (L.)</label>
                 <input type="number" className="input-field" required min="1" step="0.01"
