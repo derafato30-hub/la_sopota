@@ -28,6 +28,7 @@ export default function POS() {
 
   // Payment State
   const [paymentModalOrder, setPaymentModalOrder] = useState(null);
+  const [isPaymentCorrection, setIsPaymentCorrection] = useState(false);
   const [unpaidWarningOrder, setUnpaidWarningOrder] = useState(null);
   const [showDriverPaymentPrompt, setShowDriverPaymentPrompt] = useState(false);
   const [driverPaymentAmount, setDriverPaymentAmount] = useState('');
@@ -906,10 +907,13 @@ export default function POS() {
                   <button className="btn-secondary" onClick={() => setSummaryOrder(o)}>👁️ Ver Resumen de Pedido</button>
                   <button className="btn-primary" onClick={() => updateOrderStatus(o.id, 'estadoCocina', 'LISTO')}>Marcar Listo</button>
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setIsPaymentCorrection(false); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <>
     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
+      {hasPermission('SUPERUSUARIO') && o.estadoPago !== 'PENDIENTE' && (
+        <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #FF5722', color: '#FF5722', marginTop: '0.25rem'}} onClick={() => { setIsPaymentCorrection(true); setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>⚠️ Editar Pago</button>
+      )}
     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #2196F3', color: '#2196F3'}} onClick={() => handleEditOrder(o)}>✏️ Editar Orden</button>
   </>
                   )}
@@ -955,10 +959,13 @@ export default function POS() {
                     <button className="btn-primary" onClick={() => handleMarkDelivered(o)}>Entregar en Local</button>
                   )}
                   {o.estadoPago === 'PENDIENTE' ? (
-                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>Cobrar</button>
+                    <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setIsPaymentCorrection(false); setPaymentModalOrder(o); }}>Cobrar</button>
                   ) : (
                     <>
     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
+      {hasPermission('SUPERUSUARIO') && o.estadoPago !== 'PENDIENTE' && (
+        <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #FF5722', color: '#FF5722', marginTop: '0.25rem'}} onClick={() => { setIsPaymentCorrection(true); setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>⚠️ Editar Pago</button>
+      )}
     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #2196F3', color: '#2196F3'}} onClick={() => handleEditOrder(o)}>✏️ Editar Orden</button>
   </>
                   )}
@@ -997,9 +1004,12 @@ export default function POS() {
                   L. {o.total.toFixed(2)} | Pago: <strong style={{color: '#FF9800'}}>{o.estadoPago}</strong>
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem'}}>
-                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
+                  <button className="btn-primary" style={{backgroundColor: '#FF9800', color: 'white'}} onClick={() => { setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setIsPaymentCorrection(false); setIsPaymentCorrection(false); setPaymentModalOrder(o); }}>Cobrar Ahora</button>
                   <>
     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #4CAF50', color: '#4CAF50'}} onClick={() => handleReprintInvoice(o)}>🖨️ Imprimir Factura</button>
+      {hasPermission('SUPERUSUARIO') && o.estadoPago !== 'PENDIENTE' && (
+        <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #FF5722', color: '#FF5722', marginTop: '0.25rem'}} onClick={() => { setIsPaymentCorrection(true); setPaymentMethod('EFECTIVO'); setAmountReceived(''); setSplitPayments(o.pagosMultiples || o.splitPayments || []); setCurrentPaymentAmount(''); setModalDeliveryFee(o.deliveryFee || 0); setIncludeDeliveryInInvoice(o.includeDeliveryInInvoice ?? true); setDeliveryPaidByTransfer(o.deliveryPaidByTransfer || false); setPaymentModalOrder(o); }}>⚠️ Editar Pago</button>
+      )}
     <button className="btn-secondary" style={{padding: '0.4rem', border: '1px solid #2196F3', color: '#2196F3'}} onClick={() => handleEditOrder(o)}>✏️ Editar Orden</button>
   </>
                   <button className="btn-secondary del-btn" style={{padding: '0.4rem', border: '1px solid var(--secondary-color)', fontSize: '0.85rem'}} onClick={() => handleCancelOrder(o)}>🗑️ Cancelar Orden</button>
@@ -1702,6 +1712,7 @@ export default function POS() {
                     <button className="btn-secondary" onClick={() => {
                       setPaymentModalOrder(null);
                       setIsMultiplePayments(false);
+      setIsPaymentCorrection(false);
                     }}>Cancelar</button>
                     {remaining === 0 && (
                       <button 
