@@ -47,6 +47,36 @@ function HistorialTab({ accounts }) {
     return true;
   });
 
+  const handleResetTestData = async () => {
+    const confirmation = window.prompt("⚠️ ACCIÓN DE SUPERUSUARIO:\nEsto borrará todas las transacciones de prueba de Finanzas y reiniciará los saldos de todas las cuentas bancarias y caja chica a L. 0.00.\n\nPara confirmar, escribe 'REINICIAR':");
+    if (confirmation !== 'REINICIAR') {
+      if (confirmation) toast.error("Confirmación incorrecta. No se borró nada.");
+      return;
+    }
+    setLoading(true);
+    try {
+      // 1. Borrar todas las transacciones de fin_transactions
+      const txSnap = await getDocs(collection(db, 'fin_transactions'));
+      for (const d of txSnap.docs) {
+        await deleteDoc(doc(db, 'fin_transactions', d.id));
+      }
+
+      // 2. Reiniciar saldo a 0 en todas las cuentas fin_accounts
+      const accSnap = await getDocs(collection(db, 'fin_accounts'));
+      for (const d of accSnap.docs) {
+        await updateDoc(doc(db, 'fin_accounts', d.id), { balance: 0 });
+      }
+
+      toast.success("¡Base de datos de Finanzas reiniciada con éxito a L. 0.00!");
+      fetchTransactions();
+    } catch(err) {
+      console.error(err);
+      toast.error("Error al reiniciar datos de prueba.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getAccountName = (id) => {
     if (!id) return '-';
     return accounts.find(a => a.id === id)?.name || id;
@@ -62,9 +92,20 @@ function HistorialTab({ accounts }) {
     <div className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0, fontSize: '1.4rem' }}>📖 Historial Auditable (Ledger)</h2>
-        <button className="btn-secondary" onClick={fetchTransactions} disabled={loading}>
-          🔄 Actualizar
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button 
+            className="btn-secondary" 
+            onClick={handleResetTestData} 
+            disabled={loading}
+            style={{ backgroundColor: 'rgba(244,67,54,0.15)', color: '#FF5252', border: '1px solid #FF5252', fontWeight: 'bold' }}
+            title="Borrar transacciones de prueba y reiniciar saldos a L. 0.00"
+          >
+            🧹 Limpiar Pruebas (Reiniciar a Cero)
+          </button>
+          <button className="btn-secondary" onClick={fetchTransactions} disabled={loading}>
+            🔄 Actualizar
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
