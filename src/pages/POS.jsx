@@ -244,32 +244,34 @@ export default function POS() {
              return null;
            };
 
-           for (const oldP of pagosReales) {
-             const targetAccountId = getAccountId(oldP.method, oldP.bank);
-             if (targetAccountId) {
-               await runTransaction(db, async (t) => {
-                 const accRef = doc(db, 'fin_accounts', targetAccountId);
-                 const accDoc = await t.get(accRef);
-                 
-                 const txRef = doc(collection(db, 'fin_transactions'));
-                 t.set(txRef, {
-                   amount: oldP.amount,
-                   type: 'OUT',
-                   category: 'DEVOLUCION_POS',
-                   description: `REEMBOLSO por Cancelación - Fac: ${order.invoiceId || 'N/A'}`,
-                   sourceAccountId: targetAccountId,
-                   destinationAccountId: null,
-                   date: serverTimestamp(),
-                   createdBy: currentUser.uid,
-                   metadata: { orderId: order.id, invoiceId: order.invoiceId, isRefund: true }
-                 });
+           const orderVuelto = order.vuelto || 0;
+            for (const oldP of pagosReales) {
+              const netRefund = (oldP.method === 'EFECTIVO' && orderVuelto > 0) ? Math.max(0, oldP.amount - orderVuelto) : oldP.amount;
+              const targetAccountId = getAccountId(oldP.method, oldP.bank);
+              if (targetAccountId && netRefund > 0) {
+                await runTransaction(db, async (t) => {
+                  const accRef = doc(db, 'fin_accounts', targetAccountId);
+                  const accDoc = await t.get(accRef);
+                  
+                  const txRef = doc(collection(db, 'fin_transactions'));
+                  t.set(txRef, {
+                    amount: netRefund,
+                    type: 'OUT',
+                    category: 'DEVOLUCION_POS',
+                    description: `REEMBOLSO por Cancelación - Fac: ${order.invoiceId || 'N/A'}`,
+                    sourceAccountId: targetAccountId,
+                    destinationAccountId: null,
+                    date: serverTimestamp(),
+                    createdBy: currentUser.uid,
+                    metadata: { orderId: order.id, invoiceId: order.invoiceId, isRefund: true }
+                  });
 
-                 if (accDoc.exists()) {
-                   t.update(accRef, { balance: (accDoc.data().balance || 0) - oldP.amount });
-                 }
-               });
-             }
-           }
+                  if (accDoc.exists()) {
+                    t.update(accRef, { balance: (accDoc.data().balance || 0) - netRefund });
+                  }
+                });
+              }
+            }
          }
       }
 
@@ -316,13 +318,18 @@ export default function POS() {
     if (hasCredit) estadoBase = 'CRÉDITO';
 
     try {
-      const metaRef = doc(db, 'metadata', 'invoices');
-      const metaSnap = await getDoc(metaRef);
-      let nextNum = 1;
-      if (metaSnap.exists()) {
-        nextNum = metaSnap.data().lastCorrelative + 1;
+      let invoiceId = (isPaymentCorrection && paymentModalOrder.invoiceId) ? paymentModalOrder.invoiceId : null;
+      let nextNum = null;
+      if (!invoiceId) {
+        const metaRef = doc(db, 'metadata', 'invoices');
+        const metaSnap = await getDoc(metaRef);
+        nextNum = 1;
+        if (metaSnap.exists()) {
+          nextNum = metaSnap.data().lastCorrelative + 1;
+        }
+        invoiceId = `FAC-${String(nextNum).padStart(4, '0')}`;
+        // correlative set when created
       }
-      const invoiceId = `FAC-${String(nextNum).padStart(4, '0')}`;
       
       const cust = customers.find(c => c.id === paymentModalOrder.clienteId);
 
@@ -374,60 +381,95 @@ export default function POS() {
         await updateDoc(doc(db, 'orders', paymentModalOrder.id), updateData);
         
         // --- INICIO INTEGRACION CON FINANZAS (LEDGER) ---
-        // Extraemos solo los pagos reales que ingresan dinero (no cortesias ni creditos)
+        const accSnap = await getDocs(collection(db, 'fin_accounts'));
+        const finAccounts = accSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.id !== 'banco_atlantida');
+
+        const getTargetAccountId = (method, bank) => {
+          if (method === 'EFECTIVO') {
+            const cashAcc = finAccounts.find(a => a.type === 'CASH');
+            return cashAcc ? cashAcc.id : 'efectivo_caja';
+          }
+          if (method === 'TRANSFERENCIA' && bank) {
+            const normalizedBank = bank.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+            const matchedAcc = finAccounts.find(a => 
+              a.name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(normalizedBank)
+            );
+            return matchedAcc ? matchedAcc.id : bank.toLowerCase().replace(/\s+/g, '_');
+          }
+          return null;
+        };
+
+        // PASO 1: Si es corrección de pago o ya estaba pagado, REVERTIR pagos anteriores en Finanzas para no duplicar saldo
+        const isCorrection = isPaymentCorrection || (paymentModalOrder.estadoPago && paymentModalOrder.estadoPago !== 'PENDIENTE' && paymentModalOrder.estadoPago !== 'CANCELADO');
+        if (isCorrection) {
+          const oldPayments = paymentModalOrder.pagosMultiples || [];
+          const oldVuelto = paymentModalOrder.vuelto || 0;
+          const oldRealPayments = oldPayments.filter(p => p.method === 'EFECTIVO' || p.method === 'TRANSFERENCIA');
+
+          for (const oldP of oldRealPayments) {
+            const oldTargetId = getTargetAccountId(oldP.method, oldP.bank);
+            const oldNet = (oldP.method === 'EFECTIVO' && oldVuelto > 0) ? Math.max(0, oldP.amount - oldVuelto) : oldP.amount;
+
+            if (oldTargetId && oldNet > 0) {
+              await runTransaction(db, async (t) => {
+                const accRef = doc(db, 'fin_accounts', oldTargetId);
+                const accDoc = await t.get(accRef);
+
+                const txRef = doc(collection(db, 'fin_transactions'));
+                t.set(txRef, {
+                  amount: oldNet,
+                  type: 'OUT',
+                  category: 'AJUSTE_NEGATIVO',
+                  description: `Corrección de Pago (Reversión previa) - Fac: ${invoiceId}`,
+                  sourceAccountId: oldTargetId,
+                  destinationAccountId: null,
+                  date: serverTimestamp(),
+                  createdBy: currentUser.uid,
+                  metadata: { orderId: paymentModalOrder.id, invoiceId, isCorrection: true }
+                });
+
+                if (accDoc.exists()) {
+                  t.update(accRef, { balance: (accDoc.data().balance || 0) - oldNet });
+                }
+              });
+            }
+          }
+        }
+
+        // PASO 2: REGISTRAR LOS NUEVOS PAGOS
         const pagosAProcesar = effectiveSplitPayments.filter(p => 
           p.method === 'EFECTIVO' || p.method === 'TRANSFERENCIA'
         );
 
-        if (pagosAProcesar.length > 0) {
-          // Obtenemos todas las cuentas una sola vez para mapear nombres a IDs
-          const accSnap = await getDocs(collection(db, 'fin_accounts'));
-          const finAccounts = accSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        for (const payment of pagosAProcesar) {
+          const targetAccountId = getTargetAccountId(payment.method, payment.bank);
+          // Si es efectivo y hubo vuelto, el monto REAL ingresado a la caja es el dinero recibido MENOS el vuelto!
+          const netAmount = (payment.method === 'EFECTIVO' && vuelto > 0) ? Math.max(0, payment.amount - vuelto) : payment.amount;
 
-          for (const payment of pagosAProcesar) {
-            let targetAccountId = null;
-
-            if (payment.method === 'EFECTIVO') {
-              const cashAcc = finAccounts.find(a => a.type === 'CASH');
-              targetAccountId = cashAcc ? cashAcc.id : 'efectivo_caja';
-            } else if (payment.method === 'TRANSFERENCIA' && payment.bank) {
-              const normalizedBank = payment.bank.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-              const matchedAcc = finAccounts.find(a => 
-                a.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normalizedBank)
-              );
-              if (matchedAcc) {
-                targetAccountId = matchedAcc.id;
-              } else {
-                console.warn('No se encontr la cuenta financiera para:', payment.bank);
-                // Fallback attempt (create a generic slug)
-                targetAccountId = payment.bank.toLowerCase().replace(/\s+/g, '_');
-              }
-            }
-
-            if (targetAccountId) {
-               // Envolver en runTransaction para partida doble
-               await runTransaction(db, async (t) => {
-                 const accRef = doc(db, 'fin_accounts', targetAccountId);
-                 const accDoc = await t.get(accRef); // LEER ANTES DE ESCRIBIR
-                 
-                 const txRef = doc(collection(db, 'fin_transactions'));
-                 t.set(txRef, {
-                   amount: payment.amount,
-                   type: 'IN',
-                   category: 'VENTA_POS',
-                   description: `Cobro Venta POS - Fac: ${invoiceId}`,
-                   sourceAccountId: null,
-                   destinationAccountId: targetAccountId,
-                   date: serverTimestamp(),
-                   createdBy: currentUser.uid,
-                   metadata: { orderId: paymentModalOrder.id, invoiceId: invoiceId }
-                 });
-
-                 if (accDoc.exists()) {
-                   t.update(accRef, { balance: (accDoc.data().balance || 0) + payment.amount });
-                 }
+          if (targetAccountId && netAmount > 0) {
+             await runTransaction(db, async (t) => {
+               const accRef = doc(db, 'fin_accounts', targetAccountId);
+               const accDoc = await t.get(accRef);
+               
+               const txRef = doc(collection(db, 'fin_transactions'));
+               t.set(txRef, {
+                 amount: netAmount,
+                 type: 'IN',
+                 category: isCorrection ? 'AJUSTE_POSITIVO' : 'VENTA_POS',
+                 description: isCorrection 
+                   ? `Cobro Corregido POS - Fac: ${invoiceId}${vuelto > 0 ? ` (Recibido: L. ${payment.amount}, Vuelto: L. ${vuelto})` : ''}`
+                   : `Cobro Venta POS - Fac: ${invoiceId}${vuelto > 0 ? ` (Recibido: L. ${payment.amount}, Vuelto: L. ${vuelto})` : ''}`,
+                 sourceAccountId: null,
+                 destinationAccountId: targetAccountId,
+                 date: serverTimestamp(),
+                 createdBy: currentUser.uid,
+                 metadata: { orderId: paymentModalOrder.id, invoiceId, montoRecibido: payment.amount, vuelto }
                });
-            }
+
+               if (accDoc.exists()) {
+                 t.update(accRef, { balance: (accDoc.data().balance || 0) + netAmount });
+               }
+             });
           }
         }
         // --- FIN INTEGRACION CON FINANZAS ---
@@ -448,6 +490,7 @@ export default function POS() {
       await logAuditAction('COBRO_ORDEN', 'POS', `Orden cobrada por L.${finalTotal} (Metodo: ${primaryMethod}). Fac: ${invoiceId}`, currentUser);
       
       setPaymentModalOrder(null);
+      setIsPaymentCorrection(false);
       setPaymentMethod('EFECTIVO');
       setPaymentBank('Bac Antony');
       setAmountReceived('');
