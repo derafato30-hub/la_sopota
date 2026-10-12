@@ -320,8 +320,9 @@ export default function POS() {
     try {
       let invoiceId = (isPaymentCorrection && paymentModalOrder.invoiceId) ? paymentModalOrder.invoiceId : null;
       let nextNum = null;
+      let metaRef = null;
       if (!invoiceId) {
-        const metaRef = doc(db, 'metadata', 'invoices');
+        metaRef = doc(db, 'metadata', 'invoices');
         const metaSnap = await getDoc(metaRef);
         nextNum = 1;
         if (metaSnap.exists()) {
@@ -355,7 +356,9 @@ export default function POS() {
       };
       
       await setDoc(doc(db, 'invoices', invoiceId), newInvoice);
-      await setDoc(metaRef, { lastCorrelative: nextNum });
+      if (metaRef && nextNum !== null) {
+        await setDoc(metaRef, { lastCorrelative: nextNum });
+      }
 
       const updateData = {
         estadoPago: hasCredit ? 'CREDITO' : (isConsumo ? 'CONSUMO_PROPIO' : 'PAGADO'),
@@ -507,7 +510,7 @@ export default function POS() {
           createdAt: { toDate: () => new Date() }
         });
       }
-    } catch(e) { console.error(e); } finally { setIsProcessingPayment(false); }
+    } catch(e) { console.error(e); toast.error('Error procesando cobro: ' + (e.message || e)); } finally { setIsProcessingPayment(false); }
   };
 
   const fetchData = async () => {
