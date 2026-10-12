@@ -292,19 +292,59 @@ export default function Finanzas() {
   }, []);
 
 
+  const handleGlobalResetTestData = async () => {
+    const confirmation = window.prompt("⚠️ ACCIÓN DE SUPERUSUARIO:\nEsto borrará todas las transacciones de prueba de Finanzas y reiniciará los saldos de todas las cuentas bancarias y caja chica a L. 0.00.\n\nPara confirmar, escribe 'REINICIAR':");
+    if (confirmation !== 'REINICIAR') {
+      if (confirmation) toast.error("Confirmación incorrecta. No se borró nada.");
+      return;
+    }
+    setLoading(true);
+    try {
+      // 1. Borrar todas las transacciones de fin_transactions
+      const txSnap = await getDocs(collection(db, 'fin_transactions'));
+      for (const d of txSnap.docs) {
+        await deleteDoc(doc(db, 'fin_transactions', d.id));
+      }
+
+      // 2. Reiniciar saldo a 0 en todas las cuentas fin_accounts
+      const accSnap = await getDocs(collection(db, 'fin_accounts'));
+      for (const d of accSnap.docs) {
+        await updateDoc(doc(db, 'fin_accounts', d.id), { balance: 0 });
+      }
+
+      toast.success("¡Base de datos de Finanzas reiniciada con éxito a L. 0.00!");
+    } catch(err) {
+      console.error(err);
+      toast.error("Error al reiniciar datos de prueba.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!hasPermission('SUPERUSUARIO') && !hasPermission('FINANZAS_MASTER')) {
     return <div style={{padding:'2rem'}}>Acceso Denegado. Se requiere nivel de Finanzas o Superusuario.</div>;
   }
 
   return (
     <div className="finanzas-container" style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
-      <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItemás: 'center' }}>
+      <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItemás: 'center', gap: '0.5rem' }}>
+          <h1 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Wallet size={28} />
             Finanzas y Ledger
           </h1>
           <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Control contable de doble partida</p>
+        </div>
+        <div>
+          <button 
+            className="btn-secondary" 
+            onClick={handleGlobalResetTestData}
+            disabled={loading}
+            style={{ backgroundColor: 'rgba(244,67,54,0.15)', color: '#FF5252', border: '1px solid #FF5252', padding: '0.6rem 1.2rem', fontWeight: 'bold', borderRadius: '8px', cursor: 'pointer' }}
+            title="Borrar transacciones de prueba y reiniciar saldos a L. 0.00"
+          >
+            🧹 Limpiar Pruebas (Reiniciar a Cero)
+          </button>
         </div>
       </header>
 
