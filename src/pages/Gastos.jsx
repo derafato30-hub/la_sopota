@@ -58,7 +58,7 @@ export default function Gastos() {
 
       // Traer gastos (SOLO DE HOY)
       const snapAcc = await getDocs(collection(db, 'fin_accounts'));
-      setFinAccounts(snapAcc.docs.map(d => ({ id: d.id, ...d.data() })));
+      setFinAccounts(snapAcc.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.id !== 'banco_atlantida'));
 
       const qGastos = query(collection(db, 'expenses'), where('createdAt', '>=', startOfToday));
       const snapGastos = await getDocs(qGastos);

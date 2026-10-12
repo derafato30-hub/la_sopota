@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, setDoc, serverTimestamp, onSnapshot, where, runTransaction, limit } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, serverTimestamp, onSnapshot, where, runTransaction, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TrendingUp, Wallet, ArrowRightLeft, FileText, CheckSquare, Plus, Activity, History, Cpu } from 'lucide-react';
-
-const SEED_ACCOUNTS = [
-  { id: 'efectivo_caja', name: 'Efectivo Caja', type: 'CASH', balance: 0 },
-  { id: 'bac_elmer', name: 'BAC Elmer', type: 'BANK', balance: 0 },
-  { id: 'bac_antony', name: 'BAC Antony', type: 'BANK', balance: 0 },
-  { id: 'banco_atlantida', name: 'Banco Atlántida', type: 'BANK', balance: 0 },
-  { id: 'cxp_pollo', name: 'CxP Pollo Norteño', type: 'PAYABLE', balance: 0 }
-];
 
 function HistorialTab({ accounts }) {
   const [transactions, setTransactions] = useState([]);
@@ -192,6 +184,52 @@ export default function Finanzas() {
       ];
 
       let accs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Migrar y fusionar duplicado banco_atlantida si existe
+      const dupAtlantida = accs.find(a => a.id === 'banco_atlantida');
+      if (dupAtlantida && !syncing) {
+        syncing = true;
+        try {
+          const mainAtl = accs.find(a => a.id === 'atlantida');
+          const combinedBalance = (dupAtlantida.balance || 0) + (mainAtl?.balance || 0);
+          await setDoc(doc(db, 'fin_accounts', 'atlantida'), {
+            id: 'atlantida',
+            name: 'Banco Atlántida',
+            type: 'BANK',
+            balance: combinedBalance
+          }, { merge: true });
+          
+          // Actualizar transacciones que apunten a banco_atlantida
+          const qT1 = query(collection(db, 'fin_transactions'), where('sourceAccountId', '==', 'banco_atlantida'));
+          const sT1 = await getDocs(qT1);
+          for (const d of sT1.docs) {
+            await updateDoc(doc(db, 'fin_transactions', d.id), { sourceAccountId: 'atlantida' });
+          }
+          const qT2 = query(collection(db, 'fin_transactions'), where('destinationAccountId', '==', 'banco_atlantida'));
+          const sT2 = await getDocs(qT2);
+          for (const d of sT2.docs) {
+            await updateDoc(doc(db, 'fin_transactions', d.id), { destinationAccountId: 'atlantida' });
+          }
+
+          // Eliminar documento duplicado
+          await deleteDoc(doc(db, 'fin_accounts', 'banco_atlantida'));
+        } catch (err) {
+          console.error("Error fusionando Atlántida duplicada:", err);
+        }
+        syncing = false;
+      }
+
+      // Corregir nombre de atlantida si tiene caracteres corruptos
+      const currentAtl = accs.find(a => a.id === 'atlantida');
+      if (currentAtl && currentAtl.name !== 'Banco Atlántida') {
+        try {
+          await updateDoc(doc(db, 'fin_accounts', 'atlantida'), { name: 'Banco Atlántida' });
+        } catch (e) { console.error(e); }
+      }
+
+      // Filtrar el duplicado en memoria inmediatamente
+      accs = accs.filter(a => a.id !== 'banco_atlantida');
+
       const existingIds = new Set(accs.map(a => a.id));
       
       const missing = requiredAccounts.filter(a => !existingIds.has(a.id));
