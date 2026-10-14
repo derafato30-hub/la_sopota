@@ -393,11 +393,14 @@ export default function POS() {
             return cashAcc ? cashAcc.id : 'efectivo_caja';
           }
           if (method === 'TRANSFERENCIA' && bank) {
-            const normalizedBank = bank.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-            const matchedAcc = finAccounts.find(a => 
-              a.name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(normalizedBank)
-            );
-            return matchedAcc ? matchedAcc.id : bank.toLowerCase().replace(/\s+/g, '_');
+            const clean = bank.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            if (clean.includes("atlant")) return 'atlantida';
+            const matched = finAccounts.find(a => {
+              const aName = (a.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              const aId = (a.id || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              return aName.includes(clean) || clean.includes(aName) || aId === clean || aId.includes(clean);
+            });
+            return matched ? matched.id : clean.replace(/\s+/g, '_');
           }
           return null;
         };
@@ -1769,7 +1772,7 @@ export default function POS() {
                                 <option value="Bac Delmy">Bac Delmy</option>
                                 <option value="Bac Elmer">Bac Elmer</option>
                                 <option value="Banpais">Banpais</option>
-                                <option value="Atlantida">Atlantida</option>
+                                <option value="Banco Atlántida">Banco Atlántida</option>
                                 <option value="Ficohsa">Ficohsa</option>
                                 <option value="Davivienda">Davivienda</option>
                                 <option value="Occidente">Occidente</option>

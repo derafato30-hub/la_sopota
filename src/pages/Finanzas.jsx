@@ -286,6 +286,90 @@ export default function Finanzas() {
       } else {
         setAccounts(accs);
         setLoading(false);
+
+        // Auto-reconciliación y sincronización de órdenes/transacciones huérfanas
+        (async () => {
+          try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const startOfToday = Timestamp.fromDate(today);
+
+            // 1. Sincronizar transacciones de Atlántida (banco_atlantida -> atlantida)
+            const qT1 = query(collection(db, 'fin_transactions'), where('destinationAccountId', '==', 'banco_atlantida'));
+            const sT1 = await getDocs(qT1);
+            for (const d of sT1.docs) {
+              await updateDoc(doc(db, 'fin_transactions', d.id), { destinationAccountId: 'atlantida' });
+            }
+
+            // 2. Traer órdenes pagadas hoy y transacciones registradas hoy
+            const qOrders = query(collection(db, 'orders'), where('createdAt', '>=', startOfToday));
+            const snapOrders = await getDocs(qOrders);
+
+            const qTxToday = query(collection(db, 'fin_transactions'), where('date', '>=', startOfToday));
+            const snapTxToday = await getDocs(qTxToday);
+            const recordedOrderIds = new Set(snapTxToday.docs.map(d => d.data().metadata?.orderId).filter(Boolean));
+
+            for (const oDoc of snapOrders.docs) {
+              const o = oDoc.data();
+              if (o.estadoCocina === 'CANCELADA' || o.estadoPago === 'CANCELADO' || o.estado === 'CANCELADA') continue;
+              if (o.estadoPago === 'PENDIENTE') continue;
+
+              if (!recordedOrderIds.has(oDoc.id)) {
+                // Hay una orden pagada que no llegó al ledger
+                const pagos = o.pagosMultiples || [];
+                for (const p of pagos) {
+                  if (p.method === 'TRANSFERENCIA' || p.method === 'EFECTIVO') {
+                    let targetId = 'efectivo_caja';
+                    if (p.method === 'TRANSFERENCIA') {
+                      const cleanB = (p.bank || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                      if (cleanB.includes('atlant')) targetId = 'atlantida';
+                      else {
+                        const matched = accs.find(a => (a.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().includes(cleanB));
+                        targetId = matched ? matched.id : cleanB.replace(/\s+/g, '_');
+                      }
+                    }
+
+                    const amt = Number(p.amount) || 0;
+                    if (amt > 0) {
+                      const newTxRef = doc(collection(db, 'fin_transactions'));
+                      await setDoc(newTxRef, {
+                        amount: amt,
+                        type: 'IN',
+                        category: 'VENTA_POS',
+                        description: `Cobro Venta POS (Auto-Sync) - Fac: ${o.invoiceId || 'S/N'}`,
+                        sourceAccountId: null,
+                        destinationAccountId: targetId,
+                        date: o.createdAt || serverTimestamp(),
+                        createdBy: o.createdBy || 'sistema',
+                        metadata: { orderId: oDoc.id, invoiceId: o.invoiceId || null, autoSynced: true }
+                      });
+
+                      const accDocRef = doc(db, 'fin_accounts', targetId);
+                      const accSnapNow = await getDocs(query(collection(db, 'fin_accounts'), where('__name__', '==', targetId)));
+                      const curBal = !accSnapNow.empty ? (Number(accSnapNow.docs[0].data().balance) || 0) : 0;
+                      await setDoc(accDocRef, {
+                        id: targetId,
+                        balance: curBal + amt
+                      }, { merge: true });
+                    }
+                  }
+                }
+              }
+            }
+
+            // 3. Verificar que el saldo de Banco Atlántida refleje sus transacciones si está en 0
+            const qAtlTx = query(collection(db, 'fin_transactions'), where('destinationAccountId', '==', 'atlantida'));
+            const snapAtl = await getDocs(qAtlTx);
+            const sumAtl = snapAtl.docs.reduce((sum, d) => sum + (Number(d.data().amount) || 0), 0);
+            
+            const curAtlDoc = accs.find(a => a.id === 'atlantida');
+            if (curAtlDoc && (curAtlDoc.balance || 0) === 0 && sumAtl > 0) {
+              await setDoc(doc(db, 'fin_accounts', 'atlantida'), { balance: sumAtl }, { merge: true });
+            }
+          } catch(err) {
+            console.warn('Auto-reconciliación completada con advertencias:', err);
+          }
+        })();
       }
     });
     return () => unsub();

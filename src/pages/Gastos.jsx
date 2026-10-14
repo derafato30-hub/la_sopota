@@ -179,8 +179,16 @@ export default function Gastos() {
           } else if (p.method === 'TRANSFERENCIA') {
             stats.transferenciasVentas += foodPortion; 
             const bankName = p.bank;
-            if (bankName && stats.bancos[bankName] !== undefined) {
-              stats.bancos[bankName] += pAmt; 
+            if (bankName) {
+              const cleanB = bankName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              if (cleanB.includes("atlant")) {
+                stats.bancos['Atlantida'] = (stats.bancos['Atlantida'] || 0) + pAmt;
+              } else if (stats.bancos[bankName] !== undefined) {
+                stats.bancos[bankName] += pAmt;
+              } else {
+                const matchK = Object.keys(stats.bancos).find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().includes(cleanB));
+                if (matchK) stats.bancos[matchK] += pAmt;
+              }
             }
           }
         });
@@ -206,10 +214,18 @@ export default function Gastos() {
              }
           }
           stats.transferenciasVentas += food; 
-          const bankName = o.banco || o.paymentBank;
-          if (bankName && stats.bancos[bankName] !== undefined) {
-            stats.bancos[bankName] += depositToBank;
-          }
+           const bankName = o.banco || o.paymentBank;
+           if (bankName) {
+             const cleanB = bankName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+             if (cleanB.includes("atlant")) {
+               stats.bancos['Atlantida'] = (stats.bancos['Atlantida'] || 0) + depositToBank;
+             } else if (stats.bancos[bankName] !== undefined) {
+               stats.bancos[bankName] += depositToBank;
+             } else {
+               const matchK = Object.keys(stats.bancos).find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().includes(cleanB));
+               if (matchK) stats.bancos[matchK] += depositToBank;
+             }
+           }
         }
       }
     });
