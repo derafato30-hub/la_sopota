@@ -9,6 +9,7 @@
   color: var(--text-primary);
   font-family: var(--font-family);
   gap: 1rem;
+  padding-bottom: 4rem;
 }
 
 /* TOP HEADER & BRANCH SELECTOR */
@@ -19,10 +20,10 @@
   justify-content: space-between;
   gap: 1rem;
   background: var(--surface-color);
-  padding: 0.85rem 1.25rem;
-  border-radius: var(--border-radius);
-  border: var(--glass-border);
-  box-shadow: var(--box-shadow-sm);
+  padding: 0.9rem 1.25rem;
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .express-brand {
@@ -32,88 +33,121 @@
 }
 
 .express-brand-title {
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 800;
   color: var(--primary-color);
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0;
+  letter-spacing: 0.3px;
 }
 
 .express-badge-fast {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 800;
   text-transform: uppercase;
-  background: #ff5722;
-  color: white;
-  padding: 2px 8px;
+  background: #f97316;
+  color: #ffffff;
+  padding: 3px 10px;
   border-radius: 12px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.4);
 }
 
+/* ADMIN BRANCH SELECTOR DROPDOWN */
 .express-branch-selector {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  padding: 0.35rem 0.75rem;
-  border-radius: 20px;
+  gap: 0.6rem;
+  background: #1e293b;
+  border: 1.5px solid #f97316;
+  padding: 0.45rem 1rem;
+  border-radius: 25px;
+  min-width: 250px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+
+.express-branch-selector:hover {
+  border-color: #fb923c;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25);
 }
 
 .express-branch-select {
   background: transparent;
   border: none;
-  color: var(--text-primary);
+  color: #ffffff !important;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 800;
   outline: none;
   cursor: pointer;
+  width: 100%;
 }
 
 .express-branch-select option {
-  background: var(--surface-color);
-  color: var(--text-primary);
+  background: #1e293b;
+  color: #ffffff;
+  padding: 8px 12px;
+  font-weight: 600;
 }
 
-/* NAVIGATION TABS */
+/* CAJERO FIXED BRANCH BADGE (Read-Only) */
+.express-branch-locked-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1.5px solid #10b981;
+  padding: 0.45rem 1.1rem;
+  border-radius: 25px;
+  color: #6ee7b7;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+/* HIGH-CONTRAST NAVIGATION TABS */
 .express-nav-tabs {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.6rem;
   overflow-x: auto;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--border-color);
+  padding: 0.35rem 0.2rem 0.75rem 0.2rem;
+  border-bottom: 2px solid #334155;
   -webkit-overflow-scrolling: touch;
 }
 
 .express-tab-btn {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.6rem 1rem;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 600;
+  gap: 0.5rem;
+  padding: 0.7rem 1.25rem !important;
+  background: #1e293b !important;
+  border: 1.5px solid #334155 !important;
+  border-radius: 10px !important;
+  color: #f8fafc !important; /* Texto brillante y legible */
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .express-tab-btn:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
+  background: #334155 !important;
+  color: #ffffff !important;
+  border-color: #64748b !important;
+  transform: translateY(-1px);
 }
 
 .express-tab-btn.active {
-  background: var(--primary-color);
-  color: #1a1a1a;
-  border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(246, 167, 75, 0.35);
-  font-weight: 700;
+  background: linear-gradient(135deg, #f97316, #ea580c) !important;
+  color: #ffffff !important;
+  border-color: #f97316 !important;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.45) !important;
+  font-weight: 800 !important;
 }
 
 /* SALES SCREEN LAYOUT (Desktop & Mobile) */

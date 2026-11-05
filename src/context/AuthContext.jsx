@@ -13,6 +13,8 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null); 
   const [userPermissions, setUserPermissions] = useState(null);
+  const [assignedBranchId, setAssignedBranchId] = useState(null);
+  const [assignedBranchName, setAssignedBranchName] = useState(null);
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -30,12 +32,16 @@ export function AuthProvider({ children }) {
             const data = userDoc.data();
             setUserRole(data.role || 'GUEST');
             setUserPermissions(data.permissions || {});
+            setAssignedBranchId(data.assignedBranchId || null);
+            setAssignedBranchName(data.assignedBranchName || null);
             setRequirePasswordChange(!!data.requirePasswordChange);
             setIsActive(data.active !== false); // default to true if undefined
           } else {
             // Default master for existing dev sessions if doc doesn't exist
             setUserRole('ADMIN'); 
             setUserPermissions({ '*': true }); // Master key
+            setAssignedBranchId(null);
+            setAssignedBranchName(null);
             setRequirePasswordChange(false);
             setIsActive(true);
           }
@@ -74,6 +80,8 @@ export function AuthProvider({ children }) {
     currentUser,
     userRole,
     userPermissions,
+    assignedBranchId,
+    assignedBranchName,
     requirePasswordChange,
     isActive,
     hasPermission

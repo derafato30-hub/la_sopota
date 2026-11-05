@@ -46,6 +46,8 @@ export default function Colaboradores() {
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPermsModal, setShowPermsModal] = useState(null); // stores the user object
+  const [branches, setBranches] = useState([]);
+  const [editBranchId, setEditBranchId] = useState('');
   
   // Create form
   const [newEmail, setNewEmail] = useState('');
@@ -62,7 +64,19 @@ export default function Colaboradores() {
 
   useEffect(() => {
     fetchUsers();
+    fetchBranches();
   }, []);
+
+  const fetchBranches = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'express_branches'));
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setBranches(list);
+    } catch(e) {
+      console.error(e);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -162,6 +176,7 @@ export default function Colaboradores() {
   const openPermsModal = (u) => {
     setShowPermsModal(u);
     setEditPerms(u.permissions || {});
+    setEditBranchId(u.assignedBranchId || '');
   };
 
   const togglePermission = (modId) => {
@@ -173,10 +188,13 @@ export default function Colaboradores() {
 
   const savePermissions = async () => {
     try {
+      const targetBranch = branches.find(b => b.id === editBranchId);
       await updateDoc(doc(db, 'users', showPermsModal.uid), {
-        permissions: editPerms
+        permissions: editPerms,
+        assignedBranchId: editBranchId || null,
+        assignedBranchName: targetBranch ? targetBranch.name : null
       });
-      toast.success('Permisos actualizados');
+      toast.success('Permisos y sucursal actualizados');
       setShowPermsModal(null);
       fetchUsers();
     } catch (e) {
@@ -218,6 +236,11 @@ export default function Colaboradores() {
                 <td style={{ padding: '1rem' }}>
                   <div style={{ fontWeight: 'bold' }}>{u.name || 'Sin Nombre'}</div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{u.email}</div>
+                  {u.assignedBranchName && (
+                    <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700, marginTop: '3px' }}>
+                      📍 {u.assignedBranchName}
+                    </div>
+                  )}
                 </td>
                 <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
                   {u.identity && <div><strong>DNI:</strong> {u.identity}</div>}
@@ -346,8 +369,28 @@ export default function Colaboradores() {
               </div>
             )}
             
+            <div style={{ marginTop: '1rem', marginBottom: '1.25rem', background: 'var(--bg-color)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 700, display: 'block', marginBottom: '0.4rem' }}>
+                📍 Sucursal Asignada para La Sopota Express:
+              </label>
+              <select
+                className="input-field"
+                value={editBranchId}
+                onChange={e => setEditBranchId(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', fontWeight: 600 }}
+              >
+                <option value="">-- Sin Sucursal Asignada (Usar Principal) --</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '4px', fontSize: '0.78rem' }}>
+                Los cajeros quedarán bloqueados a esta sucursal fija y no podrán cambiarla.
+              </small>
+            </div>
+
             <button className="btn-primary" style={{ width: '100%' }} onClick={savePermissions}>
-              <Save size={20} /> Guardar Permisos
+              <Save size={20} /> Guardar Permisos y Sucursal
             </button>
           </div>
         </div>

@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Zap, Package, Calculator, Palette, Store, ChefHat, RefreshCw } from 'lucide-react';
+import { Zap, Package, Calculator, Palette, Store, ChefHat, Lock, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import './Express.css';
 
 import ExpressVenta from './ExpressVenta';
 import ExpressInventario from './ExpressInventario';
 import ExpressCierre from './ExpressCierre';
 import ExpressConfigSopas from './ExpressConfigSopas';
-import ExpressSucursales from './ExpressSucursales';
+import ExpressSucursales, { DEFAULT_BRANCHES_SEED } from './ExpressSucursales';
+import { DEFAULT_SOUPS_SEED } from './ExpressConfigSopas';
 
 export default function Express() {
+  const { currentUser, userRole, assignedBranchId, assignedBranchName } = useAuth();
+  const isAdmin = userRole === 'ADMIN';
+
   const [activeTab, setActiveTab] = useState('VENTA'); // 'VENTA' | 'INVENTARIO' | 'CIERRE' | 'SOPAS' | 'SUCURSALES'
   const [branches, setBranches] = useState([]);
   const [activeBranch, setActiveBranch] = useState(null);
@@ -21,30 +26,73 @@ export default function Express() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. Cargar sucursales y sopas al iniciar
+  // Si no es admin y está en una pestaña restringida, forzar 'VENTA'
+  useEffect(() => {
+    if (!isAdmin && activeTab !== 'VENTA' && activeTab !== 'INVENTARIO') {
+      setActiveTab('VENTA');
+    }
+  }, [isAdmin, activeTab]);
+
+  // 1. Cargar sucursales y sopas al iniciar con auto-siembra si están vacías
   useEffect(() => {
     loadInitialData();
-  }, []);
+  }, [assignedBranchId, isAdmin]);
 
   const loadInitialData = async () => {
     setLoading(true);
     try {
       // Cargar sucursales
       const bSnap = await getDocs(collection(db, 'express_branches'));
-      const bList = [];
+      let bList = [];
       bSnap.forEach(d => bList.push({ id: d.id, ...d.data() }));
+
+      // Si no hay sucursales creadas en la base de datos, sembrar las iniciales
+      if (bList.length === 0) {
+        for (const b of DEFAULT_BRANCHES_SEED) {
+          const docRef = await addDoc(collection(db, 'express_branches'), {
+            ...b,
+            createdAt: serverTimestamp()
+          });
+          bList.push({ id: docRef.id, ...b });
+        }
+      }
+
       bList.sort((a, b) => a.name.localeCompare(b.name));
       setBranches(bList);
 
-      // Restaurar sucursal guardada en localStorage o seleccionar la primera
-      const savedBranchId = localStorage.getItem('sopota_express_active_branch');
-      const foundBranch = bList.find(b => b.id === savedBranchId) || bList[0] || null;
-      setActiveBranch(foundBranch);
+      // ASIGNACIÓN DE SUCURSAL ACTIVA:
+      // Si el usuario NO es admin, queda ESTRICTAMENTE bloqueado a su sucursal asignada
+      let resolvedBranch = null;
+      if (!isAdmin) {
+        if (assignedBranchId) {
+          resolvedBranch = bList.find(b => b.id === assignedBranchId) || bList[0];
+        } else {
+          resolvedBranch = bList[0];
+        }
+      } else {
+        // Si es Admin, puede cambiar de sucursal libremente (recuerda selección previa)
+        const savedBranchId = localStorage.getItem('sopota_express_active_branch');
+        resolvedBranch = bList.find(b => b.id === savedBranchId) || bList[0];
+      }
+
+      setActiveBranch(resolvedBranch);
 
       // Cargar sopas
       const sSnap = await getDocs(collection(db, 'express_soups'));
-      const sList = [];
+      let sList = [];
       sSnap.forEach(d => sList.push({ id: d.id, ...d.data() }));
+
+      // Si no hay sopas, sembrar iniciales
+      if (sList.length === 0) {
+        for (const item of DEFAULT_SOUPS_SEED) {
+          const docRef = await addDoc(collection(db, 'express_soups'), {
+            ...item,
+            createdAt: serverTimestamp()
+          });
+          sList.push({ id: docRef.id, ...item });
+        }
+      }
+
       sList.sort((a, b) => a.name.localeCompare(b.name));
       setSoups(sList);
     } catch (err) {
@@ -79,6 +127,10 @@ export default function Express() {
   }, [activeBranch, todayStr]);
 
   const handleSelectBranch = (b) => {
+    // Solo el administrador tiene permiso de cambiar de sucursal
+    if (!isAdmin) {
+      return toast.error('Solo los administradores pueden cambiar de sucursal.');
+    }
     setActiveBranch(b);
     if (b) localStorage.setItem('sopota_express_active_branch', b.id);
   };
@@ -94,36 +146,58 @@ export default function Express() {
 
   return (
     <div className="express-container">
-      {/* 1. TOP HEADER CON MARCA Y SELECTOR RÁPIDO DE SUCURSAL */}
+      {/* 1. TOP HEADER CON MARCA Y SUCURSAL */}
       <header className="express-header">
         <div className="express-brand">
-          <ChefHat size={28} color="var(--primary-color)" />
+          <ChefHat size={30} color="var(--primary-color)" />
           <h1 className="express-brand-title">
             La Sopota Express
             <span className="express-badge-fast">⚡ Rápido</span>
           </h1>
         </div>
 
-        {/* SELECTOR RÁPIDO DE SUCURSAL */}
-        <div className="express-branch-selector">
-          <Store size={18} color="var(--primary-color)" />
-          <select
-            className="express-branch-select"
-            value={activeBranch?.id || ''}
-            onChange={(e) => {
-              const selected = branches.find(b => b.id === e.target.value);
-              handleSelectBranch(selected);
-            }}
-          >
-            {branches.map(b => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </div>
+        {/* SELECTOR O BADGE FIJO DE SUCURSAL */}
+        {isAdmin ? (
+          /* VISTA ADMINISTRADOR: Puede cambiar de sucursal a voluntad */
+          <div className="express-branch-selector" title="Cambiar punto de venta activo">
+            <Store size={20} color="var(--primary-color)" />
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: '180px' }}>
+              <span style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800 }}>
+                📍 Sucursal Activa:
+              </span>
+              <select
+                className="express-branch-select"
+                value={activeBranch?.id || ''}
+                onChange={(e) => {
+                  const selected = branches.find(b => b.id === e.target.value);
+                  handleSelectBranch(selected);
+                }}
+              >
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
+          /* VISTA CAJERO / COLABORADOR: Sucursal bloqueada y fijada por el admin */
+          <div className="express-branch-locked-badge" title="Sucursal asignada por administración">
+            <Lock size={16} color="#10b981" />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.68rem', color: '#6ee7b7', textTransform: 'uppercase', fontWeight: 700 }}>
+                📍 Sucursal Asignada:
+              </span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>
+                {activeBranch?.name || assignedBranchName || 'Punto Asignado'}
+              </span>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* 2. PESTAÑAS DE NAVEGACIÓN (Touch & Mobile Friendly) */}
+      {/* 2. PESTAÑAS DE NAVEGACIÓN SEGÚN ROL */}
       <nav className="express-nav-tabs">
+        {/* Pestañas disponibles para Cajeros y Administradores */}
         <button
           type="button"
           className={`express-tab-btn ${activeTab === 'VENTA' ? 'active' : ''}`}
@@ -145,35 +219,40 @@ export default function Express() {
           )}
         </button>
 
-        <button
-          type="button"
-          className={`express-tab-btn ${activeTab === 'CIERRE' ? 'active' : ''}`}
-          onClick={() => setActiveTab('CIERRE')}
-        >
-          <Calculator size={18} />
-          <span>Cierre y Finanzas</span>
-        </button>
+        {/* Pestañas EXCLUSIVAS para Administradores (Cierre, Configurar Sopas, Sucursales) */}
+        {isAdmin && (
+          <>
+            <button
+              type="button"
+              className={`express-tab-btn ${activeTab === 'CIERRE' ? 'active' : ''}`}
+              onClick={() => setActiveTab('CIERRE')}
+            >
+              <Calculator size={18} />
+              <span>Cierre y Finanzas</span>
+            </button>
 
-        <button
-          type="button"
-          className={`express-tab-btn ${activeTab === 'SOPAS' ? 'active' : ''}`}
-          onClick={() => setActiveTab('SOPAS')}
-        >
-          <Palette size={18} />
-          <span>Configurar Sopas</span>
-        </button>
+            <button
+              type="button"
+              className={`express-tab-btn ${activeTab === 'SOPAS' ? 'active' : ''}`}
+              onClick={() => setActiveTab('SOPAS')}
+            >
+              <Palette size={18} />
+              <span>Configurar Sopas</span>
+            </button>
 
-        <button
-          type="button"
-          className={`express-tab-btn ${activeTab === 'SUCURSALES' ? 'active' : ''}`}
-          onClick={() => setActiveTab('SUCURSALES')}
-        >
-          <Store size={18} />
-          <span>Sucursales ({branches.length})</span>
-        </button>
+            <button
+              type="button"
+              className={`express-tab-btn ${activeTab === 'SUCURSALES' ? 'active' : ''}`}
+              onClick={() => setActiveTab('SUCURSALES')}
+            >
+              <Store size={18} />
+              <span>Sucursales ({branches.length})</span>
+            </button>
+          </>
+        )}
       </nav>
 
-      {/* 3. VISTAS ACTIVAS */}
+      {/* 3. VISTAS ACTIVAS PROTEGIDAS */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {activeTab === 'VENTA' && (
           <ExpressVenta
@@ -194,7 +273,8 @@ export default function Express() {
           />
         )}
 
-        {activeTab === 'CIERRE' && (
+        {/* Solo accesibles si es ADMIN */}
+        {isAdmin && activeTab === 'CIERRE' && (
           <ExpressCierre
             activeBranch={activeBranch}
             soups={soups}
@@ -203,13 +283,13 @@ export default function Express() {
           />
         )}
 
-        {activeTab === 'SOPAS' && (
+        {isAdmin && activeTab === 'SOPAS' && (
           <ExpressConfigSopas
             onSoupsChanged={setSoups}
           />
         )}
 
-        {activeTab === 'SUCURSALES' && (
+        {isAdmin && activeTab === 'SUCURSALES' && (
           <ExpressSucursales
             activeBranch={activeBranch}
             onSelectBranch={handleSelectBranch}

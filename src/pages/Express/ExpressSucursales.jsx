@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Store, Plus, Edit2, Trash2, CheckCircle2, MapPin, RefreshCw } from 'lucide-react';
+import { Store, Plus, Edit2, Trash2, CheckCircle2, MapPin, RefreshCw, Users, UserCheck } from 'lucide-react';
 
 export const DEFAULT_BRANCHES_SEED = [
   { name: 'Punto Principal - Express', code: 'EXP-01', location: 'Local Central', active: true },
@@ -20,8 +20,13 @@ export default function ExpressSucursales({ activeBranch, onSelectBranch, onBran
   const [location, setLocation] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Colaboradores y asignación
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
   useEffect(() => {
     fetchBranches();
+    fetchUsers();
   }, []);
 
   const fetchBranches = async () => {
@@ -56,6 +61,20 @@ export default function ExpressSucursales({ activeBranch, onSelectBranch, onBran
       toast.error('Error al cargar puntos de venta');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      const list = [];
+      snap.forEach(d => list.push({ uid: d.id, ...d.data() }));
+      setUsers(list);
+    } catch (err) {
+      console.error('Error cargando colaboradores:', err);
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -123,28 +142,49 @@ export default function ExpressSucursales({ activeBranch, onSelectBranch, onBran
     }
   };
 
+  // ASIGNAR SUCURSAL A UN COLABORADOR
+  const handleAssignBranchToUser = async (user, branchId) => {
+    try {
+      const targetBranch = branches.find(b => b.id === branchId);
+      const bName = targetBranch ? targetBranch.name : null;
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        assignedBranchId: branchId || null,
+        assignedBranchName: bName,
+        updatedAt: serverTimestamp()
+      });
+
+      setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, assignedBranchId: branchId, assignedBranchName: bName } : u));
+      toast.success(`Sucursal "${bName || 'Sin asignar'}" asignada a ${user.name || user.email}`);
+    } catch (err) {
+      console.error('Error al asignar sucursal a usuario:', err);
+      toast.error('Error al asignar sucursal');
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Store size={26} /> Puntos de Venta y Sucursales
+            <Store size={26} /> Administración de Puntos de Venta (Sucursales)
           </h2>
           <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Cada punto de venta tiene su propio inventario diario, ventas y cierre financiero 100% independiente.
+            Crea nuevos puntos de venta y asigna a cada cajero su sucursal fija para que no puedan cambiarla.
           </p>
         </div>
-        <button className="btn-secondary" onClick={fetchBranches} title="Recargar">
+        <button className="btn-secondary" onClick={() => { fetchBranches(); fetchUsers(); }} title="Recargar">
           <RefreshCw size={18} />
         </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', alignItems: 'flex-start' }}>
-        {/* FORMULARIO */}
-        <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem' }}>
+        {/* FORMULARIO AGREGAR / EDITAR */}
+        <div className="card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem' }}>
           <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: editingId ? '#38bdf8' : '#22c55e' }}>
             {editingId ? <Edit2 size={20} /> : <Plus size={20} />}
-            {editingId ? 'Editar Punto de Venta' : 'Nuevo Punto de Venta'}
+            {editingId ? 'Editar Sucursal' : 'Nueva Sucursal / Punto'}
           </h3>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -214,10 +254,10 @@ export default function ExpressSucursales({ activeBranch, onSelectBranch, onBran
           </form>
         </div>
 
-        {/* LISTADO DE PUNTOS */}
+        {/* LISTADO DE PUNTOS DE VENTA */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-            Sucursales Disponibles ({branches.length})
+            Sucursales Activas ({branches.length})
           </h3>
 
           {loading ? (
@@ -247,13 +287,13 @@ export default function ExpressSucursales({ activeBranch, onSelectBranch, onBran
                           {b.name}
                         </strong>
                         {b.code && (
-                          <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                          <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
                             {b.code}
                           </span>
                         )}
                         {isSelected && (
                           <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                            <CheckCircle2 size={14} /> Seleccionado Activo
+                            <CheckCircle2 size={14} /> Seleccionado
                           </span>
                         )}
                       </div>
@@ -303,6 +343,92 @@ export default function ExpressSucursales({ activeBranch, onSelectBranch, onBran
             </div>
           )}
         </div>
+      </div>
+
+      {/* SECCIÓN EXCLUSIVA: ASIGNACIÓN DE SUCURSAL A CAJEROS / COLABORADORES */}
+      <div className="card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-lg)', padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <Users size={24} color="var(--primary-color)" />
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-primary)' }}>
+              Asignación de Sucursal a Colaboradores
+            </h3>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Aquí defines a qué punto de venta está asignado cada cajero. Ellos no podrán cambiar de sucursal ni acceder a los cierres.
+            </span>
+          </div>
+        </div>
+
+        {loadingUsers ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Cargando colaboradores...</div>
+        ) : users.length === 0 ? (
+          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            No hay colaboradores registrados.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  <th style={{ padding: '0.75rem' }}>COLABORADOR</th>
+                  <th style={{ padding: '0.75rem' }}>ROL</th>
+                  <th style={{ padding: '0.75rem' }}>SUCURSAL ASIGNADA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => {
+                  const isUserAdmin = u.role === 'ADMIN';
+                  return (
+                    <tr key={u.uid} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{u.name || 'Sin Nombre'}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{u.email}</div>
+                      </td>
+
+                      <td style={{ padding: '0.75rem' }}>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: isUserAdmin ? 'rgba(249, 115, 22, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                          color: isUserAdmin ? '#f97316' : '#38bdf8'
+                        }}>
+                          {u.role || 'CAJERO'}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: '0.75rem' }}>
+                        {isUserAdmin ? (
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                            (Acceso total a todas las sucursales)
+                          </span>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', maxWidth: '320px' }}>
+                            <select
+                              className="input-field"
+                              value={u.assignedBranchId || ''}
+                              onChange={(e) => handleAssignBranchToUser(u, e.target.value)}
+                              style={{ width: '100%', padding: '0.45rem 0.75rem', fontSize: '0.9rem', fontWeight: 600 }}
+                            >
+                              <option value="">-- Sin Sucursal Asignada --</option>
+                              {branches.map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                            {u.assignedBranchId && (
+                              <UserCheck size={18} color="#22c55e" title="Sucursal Asignada" />
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
