@@ -24,7 +24,8 @@ const firebaseConfig = {
 const MODULES = [
   { id: 'dashboard', name: 'Dashboard Principal' },
   { id: 'pos', name: 'Punto de Venta (POS)' },
-  { id: 'menu', name: 'Men General' },
+  { id: 'express', name: 'La Sopota Express' },
+  { id: 'menu', name: 'Menú General' },
   { id: 'menu_dia', name: 'Men del Da' },
   { id: 'cocina', name: 'KDS (Cocina)' },
   { id: 'clientes', name: 'Cuentas por Cobrar' },

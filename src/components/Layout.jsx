@@ -17,6 +17,7 @@ import {
   UserCog,
   Menu,
   Shield,
+  Zap,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -82,6 +83,16 @@ export default function Layout() {
             <Link to="/pos" className={`nav-item ${location.pathname === '/pos' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
               <ShoppingCart size={20} />
               <span>Punto de Venta</span>
+            </Link>
+          )}
+
+          {hasPermission("express") && (
+            <Link to="/express" className={`nav-item ${location.pathname === '/express' ? 'active' : ''}`} onClick={() => setIsSidebarOpen(false)}>
+              <Zap size={20} color="#ff5722" />
+              <span style={{display: 'flex', flexDirection: 'column'}}>
+                <span>La Sopota Express</span>
+                <span style={{fontSize: '0.7rem', color: '#ff5722', fontWeight: 'bold'}}>⚡ Venta Rápida</span>
+              </span>
             </Link>
           )}
 

@@ -15,6 +15,7 @@ import Invoices from './pages/Invoices';
 import Colaboradores from './pages/Colaboradores';
 import Finanzas from './pages/Finanzas';
 import ClubCadetes from './pages/ClubCadetes/ClubCadetes';
+import Express from './pages/Express/Express';
 import MigrateDB from './pages/MigrateDB';
 
 // Componente para proteger rutas (Requiere Login y Permisos)
@@ -70,6 +71,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<ProtectedRoute moduleName="dashboard"><Dashboard /></ProtectedRoute>} />
             <Route path="pos" element={<ProtectedRoute moduleName="pos"><POS /></ProtectedRoute>} />
+            <Route path="express" element={<ProtectedRoute moduleName="express"><Express /></ProtectedRoute>} />
             <Route path="menu" element={<ProtectedRoute moduleName="menu"><MenuConfig /></ProtectedRoute>} />
             <Route path="menu-dia" element={<ProtectedRoute moduleName="menu_dia"><MenuDelDiaConfig /></ProtectedRoute>} />
             <Route path="kds" element={<ProtectedRoute moduleName="cocina"><KDS /></ProtectedRoute>} />
