@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function ExpressInventario({ activeBranch, soups, session, onSessionUpdate }) {
+export default function ExpressInventario({ activeBranch, branches = [], onSelectBranch, isAdmin = false, soups, session, onSessionUpdate }) {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [initialStocks, setInitialStocks] = useState({});
@@ -141,6 +141,26 @@ export default function ExpressInventario({ activeBranch, soups, session, onSess
             </span>
           </p>
         </div>
+
+        {/* SELECTOR RÁPIDO DE SUCURSAL PARA ADMINISTRADOR */}
+        {isAdmin && branches.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#1e293b', border: '1.5px solid #f97316', padding: '0.35rem 0.85rem', borderRadius: '20px' }}>
+            <Store size={16} color="#f97316" />
+            <select
+              className="input-field"
+              value={activeBranch?.id || ''}
+              onChange={(e) => {
+                const b = branches.find(item => item.id === e.target.value);
+                if (b && onSelectBranch) onSelectBranch(b);
+              }}
+              style={{ border: 'none', background: 'transparent', color: '#ffffff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
+            >
+              {branches.map(b => (
+                <option key={b.id} value={b.id} style={{ background: '#1e293b' }}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* CASO 1: NO HAY SESIÓN ABIERTA -> FORMULARIO DE APERTURA */}

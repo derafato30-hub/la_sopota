@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Zap, Package, Calculator, Palette, Store, ChefHat, Lock, ShieldCheck } from 'lucide-react';
+import { Zap, Package, Calculator, Palette, Store, ChefHat, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import './Express.css';
 
@@ -267,6 +267,9 @@ export default function Express() {
         {activeTab === 'INVENTARIO' && (
           <ExpressInventario
             activeBranch={activeBranch}
+            branches={branches}
+            onSelectBranch={handleSelectBranch}
+            isAdmin={isAdmin}
             soups={soups}
             session={session}
             onSessionUpdate={setSession}
@@ -277,6 +280,8 @@ export default function Express() {
         {isAdmin && activeTab === 'CIERRE' && (
           <ExpressCierre
             activeBranch={activeBranch}
+            branches={branches}
+            onSelectBranch={handleSelectBranch}
             soups={soups}
             session={session}
             onSessionUpdate={setSession}

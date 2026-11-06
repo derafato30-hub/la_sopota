@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Calculator, CheckCircle2, AlertTriangle, Printer, History, DollarSign, PackageCheck, RefreshCw } from 'lucide-react';
+import { Calculator, CheckCircle2, AlertTriangle, Printer, History, DollarSign, PackageCheck, RefreshCw, BarChart3, Store } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function ExpressCierre({ activeBranch, soups, session, onSessionUpdate }) {
+export default function ExpressCierre({ activeBranch, branches = [], onSelectBranch, soups, session, onSessionUpdate }) {
   const { currentUser } = useAuth();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +20,11 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [viewHistory, setViewHistory] = useState(false);
 
+  // Vista Consolidada Multi-Sucursal (Exclusiva para Administrador)
+  const [viewConsolidated, setViewConsolidated] = useState(false);
+  const [allSalesToday, setAllSalesToday] = useState([]);
+  const [loadingConsolidated, setLoadingConsolidated] = useState(false);
+
   const todayStr = new Date().toISOString().split('T')[0];
   const sessionId = activeBranch ? `${activeBranch.id}_${todayStr}` : null;
 
@@ -29,6 +34,12 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
       fetchPastClosures();
     }
   }, [activeBranch]);
+
+  useEffect(() => {
+    if (viewConsolidated) {
+      fetchAllBranchesSalesToday();
+    }
+  }, [viewConsolidated]);
 
   const fetchTodayBranchSales = async () => {
     if (!activeBranch) return;
@@ -48,6 +59,25 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
       toast.error('Error al cargar ventas para el cierre');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllBranchesSalesToday = async () => {
+    setLoadingConsolidated(true);
+    try {
+      const q = query(
+        collection(db, 'express_sales'),
+        where('dateStr', '==', todayStr)
+      );
+      const snap = await getDocs(q);
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setAllSalesToday(list);
+    } catch (err) {
+      console.error('Error cargando ventas consolidadas:', err);
+      toast.error('Error al cargar reporte consolidado');
+    } finally {
+      setLoadingConsolidated(false);
     }
   };
 
@@ -72,7 +102,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
     }
   };
 
-  // CÁLCULOS FINANCIEROS DEL DÍA
+  // CÁLCULOS FINANCIEROS DE LA SUCURSAL ACTIVA
   const totalSalesAmount = sales.reduce((acc, s) => acc + (s.total || 0), 0);
   const totalCashSales = sales.filter(s => s.paymentMethod === 'EFECTIVO').reduce((acc, s) => acc + (s.total || 0), 0);
   const totalTransferSales = sales.filter(s => s.paymentMethod === 'TRANSFERENCIA').reduce((acc, s) => acc + (s.total || 0), 0);
@@ -117,7 +147,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
 
   const totalSoupsSold = soupSalesSummary.reduce((acc, it) => acc + it.soldQty, 0);
 
-  // REALIZAR CIERRE INDEPENDIENTE
+  // REALIZAR CIERRE INDEPENDIENTE DE LA SUCURSAL
   const handlePerformClosure = async () => {
     if (!hasEnteredCash) {
       return toast.error('Ingresa el monto de efectivo físico contado en caja.');
@@ -134,7 +164,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
         sessionId: sessionId,
         date: todayStr,
         closedAt: serverTimestamp(),
-        closedBy: currentUser?.email || 'cajero_express',
+        closedBy: currentUser?.email || 'admin',
         totalSales: totalSalesAmount,
         totalCash: totalCashSales,
         totalTransfer: totalTransferSales,
@@ -156,7 +186,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
         await updateDoc(doc(db, 'express_sessions', sessionId), {
           status: 'CLOSED',
           closedAt: serverTimestamp(),
-          closedBy: currentUser?.email || 'cajero_express',
+          closedBy: currentUser?.email || 'admin',
           finalDifference: difference
         });
       }
@@ -215,7 +245,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
           <h3 style="margin: 3px 0;">CIERRE EXPRÉS DE CAJA</h3>
           <p style="margin: 2px 0;"><strong>${data.branchName}</strong></p>
           <p style="margin: 2px 0;">Fecha: ${data.date}</p>
-          <p style="margin: 2px 0;">Cajero: ${data.closedBy || 'Cajero'}</p>
+          <p style="margin: 2px 0;">Cajero: ${data.closedBy || 'Admin'}</p>
         </div>
         <hr/>
         <div class="font-bold">RESUMEN DE VENTAS:</div>
@@ -269,6 +299,50 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
     }, 250);
   };
 
+  // CÁLCULOS VISTA CONSOLIDADA (GLOBAL TODAS LAS SUCURSALES)
+  const consolidatedTotalSales = allSalesToday.reduce((sum, s) => sum + (s.total || 0), 0);
+  const consolidatedTotalCash = allSalesToday.filter(s => s.paymentMethod === 'EFECTIVO').reduce((sum, s) => sum + (s.total || 0), 0);
+  const consolidatedTotalTransfer = allSalesToday.filter(s => s.paymentMethod === 'TRANSFERENCIA').reduce((sum, s) => sum + (s.total || 0), 0);
+  const consolidatedTotalSoups = allSalesToday.reduce((sum, s) => sum + ((s.items || []).reduce((sub, it) => sub + (it.qty || 0), 0)), 0);
+
+  // Agrupado por sucursal
+  const branchBreakdown = {};
+  branches.forEach(b => {
+    branchBreakdown[b.id] = {
+      id: b.id,
+      name: b.name,
+      code: b.code,
+      location: b.location,
+      ticketsCount: 0,
+      totalSales: 0,
+      cashSales: 0,
+      transferSales: 0,
+      soupsCount: 0
+    };
+  });
+
+  allSalesToday.forEach(s => {
+    const bId = s.branchId || 'desconocida';
+    if (!branchBreakdown[bId]) {
+      branchBreakdown[bId] = {
+        id: bId,
+        name: s.branchName || 'Otra Sucursal',
+        code: '',
+        location: '',
+        ticketsCount: 0,
+        totalSales: 0,
+        cashSales: 0,
+        transferSales: 0,
+        soupsCount: 0
+      };
+    }
+    branchBreakdown[bId].ticketsCount += 1;
+    branchBreakdown[bId].totalSales += (s.total || 0);
+    if (s.paymentMethod === 'EFECTIVO') branchBreakdown[bId].cashSales += (s.total || 0);
+    if (s.paymentMethod === 'TRANSFERENCIA') branchBreakdown[bId].transferSales += (s.total || 0);
+    branchBreakdown[bId].soupsCount += (s.items || []).reduce((acc, it) => acc + (it.qty || 0), 0);
+  });
+
   if (!activeBranch) {
     return (
       <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
@@ -282,32 +356,70 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* HEADER */}
+      {/* HEADER DE CIERRE CON SELECTOR DE SUCURSAL Y BOTÓN CONSOLIDADO */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Calculator size={26} /> Cierre Diario ({activeBranch.name})
+            <Calculator size={26} /> Cierre y Finanzas (Vista de Administrador)
           </h2>
           <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Fecha: <strong>{todayStr}</strong> | Estado:{' '}
-            <span style={{ color: isAlreadyClosed ? '#3b82f6' : '#22c55e', fontWeight: 'bold' }}>
-              {isAlreadyClosed ? '● DÍA CERRADO' : '● EN OPERACIÓN'}
-            </span>
+            Fecha: <strong>{todayStr}</strong> | Administra y supervisa los números de cada sucursal de forma individual o global.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        {/* ACCIONES Y SELECTORES PARA EL ADMIN */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+          {/* SELECTOR RÁPIDO DE SUCURSAL */}
+          {branches.length > 0 && !viewConsolidated && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#1e293b', border: '1.5px solid #f97316', padding: '0.35rem 0.75rem', borderRadius: '20px' }}>
+              <Store size={16} color="#f97316" />
+              <select
+                className="input-field"
+                value={activeBranch?.id || ''}
+                onChange={(e) => {
+                  const b = branches.find(item => item.id === e.target.value);
+                  if (b && onSelectBranch) onSelectBranch(b);
+                }}
+                style={{ border: 'none', background: 'transparent', color: '#ffffff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
+              >
+                {branches.map(b => (
+                  <option key={b.id} value={b.id} style={{ background: '#1e293b' }}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* BOTÓN VISTA CONSOLIDADA MULTI-SUCURSAL */}
           <button
             type="button"
-            className="btn-secondary"
-            onClick={() => setViewHistory(!viewHistory)}
+            className={viewConsolidated ? 'btn-primary' : 'btn-secondary'}
+            onClick={() => {
+              setViewConsolidated(!viewConsolidated);
+              setViewHistory(false);
+            }}
+            style={{ fontWeight: 700, fontSize: '0.9rem' }}
           >
-            <History size={18} /> {viewHistory ? 'Ver Cierre de Hoy' : 'Historial de Cierres'}
+            <BarChart3 size={18} /> {viewConsolidated ? 'Volver a Sucursal' : '🌟 Consolidado General (Todas)'}
           </button>
+
+          {!viewConsolidated && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setViewHistory(!viewHistory)}
+              style={{ fontWeight: 700, fontSize: '0.9rem' }}
+            >
+              <History size={18} /> {viewHistory ? 'Cierre de Hoy' : 'Historial de Cierres'}
+            </button>
+          )}
+
           <button
             type="button"
             className="btn-secondary"
-            onClick={fetchTodayBranchSales}
+            onClick={() => {
+              if (viewConsolidated) fetchAllBranchesSalesToday();
+              else fetchTodayBranchSales();
+            }}
             title="Recargar ventas"
           >
             <RefreshCw size={18} />
@@ -315,8 +427,127 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
         </div>
       </div>
 
-      {/* VISTA 1: HISTORIAL DE CIERRES ANTERIORES */}
-      {viewHistory ? (
+      {/* VISTA 1: REPORTE CONSOLIDADO DE TODAS LAS SUCURSALES (GLOBAL) */}
+      {viewConsolidated ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* TARJETAS RESUMEN GLOBAL */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <div className="card" style={{ background: 'var(--surface-color)', border: '1px solid #334155', borderRadius: '12px', padding: '1.25rem', borderLeft: '5px solid #f97316' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Total Ventas (Todas las Sucursales)</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--primary-color)', marginTop: '4px' }}>
+                L. {consolidatedTotalSales.toFixed(2)}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{allSalesToday.length} tickets registrados hoy</span>
+            </div>
+
+            <div className="card" style={{ background: 'var(--surface-color)', border: '1px solid #334155', borderRadius: '12px', padding: '1.25rem', borderLeft: '5px solid #22c55e' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Total en Efectivo Global</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#22c55e', marginTop: '4px' }}>
+                L. {consolidatedTotalCash.toFixed(2)}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Efectivo recaudado en toda la red</span>
+            </div>
+
+            <div className="card" style={{ background: 'var(--surface-color)', border: '1px solid #334155', borderRadius: '12px', padding: '1.25rem', borderLeft: '5px solid #38bdf8' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Total en Transferencias Global</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#38bdf8', marginTop: '4px' }}>
+                L. {consolidatedTotalTransfer.toFixed(2)}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Bancos y transferencias electrónicas</span>
+            </div>
+
+            <div className="card" style={{ background: 'var(--surface-color)', border: '1px solid #334155', borderRadius: '12px', padding: '1.25rem', borderLeft: '5px solid #a855f7' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Total de Sopas Vendidas</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#c084fc', marginTop: '4px' }}>
+                {consolidatedTotalSoups} sopas
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>En todos los puntos combinados</span>
+            </div>
+          </div>
+
+          {/* TABLA COMPARATIVA POR CADA SUCURSAL */}
+          <div className="card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-lg)', padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>
+              Comparativa de Rendimiento por Sucursal (Hoy: {todayStr})
+            </h3>
+
+            {loadingConsolidated ? (
+              <div style={{ padding: '2rem', textAlign: 'center' }}>Cargando datos globales...</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      <th style={{ padding: '0.75rem' }}>SUCURSAL</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'center' }}>TICKETS</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'center' }}>SOPAS VENDIDAS</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right' }}>EFECTIVO</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right' }}>TRANSFERENCIA</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right' }}>TOTAL VENTAS</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'center' }}>ACCIÓN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.values(branchBreakdown).map(bItem => (
+                      <tr key={bItem.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '0.75rem' }}>
+                          <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>{bItem.name}</strong>
+                          {bItem.location && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{bItem.location}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold' }}>
+                          {bItem.ticketsCount}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', color: '#c084fc' }}>
+                          {bItem.soupsCount}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', color: '#22c55e', fontWeight: 600 }}>
+                          L. {bItem.cashSales.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', color: '#38bdf8', fontWeight: 600 }}>
+                          L. {bItem.transferSales.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 800, fontSize: '1.05rem', color: '#f97316' }}>
+                          L. {bItem.totalSales.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
+                            onClick={() => {
+                              const target = branches.find(b => b.id === bItem.id);
+                              if (target && onSelectBranch) {
+                                onSelectBranch(target);
+                                setViewConsolidated(false);
+                                toast.info(`Cambiado a sucursal: ${target.name}`);
+                              }
+                            }}
+                          >
+                            Ver / Cerrar Sucursal
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {/* FILA TOTAL */}
+                    <tr style={{ background: 'var(--surface-hover)', fontWeight: 900 }}>
+                      <td style={{ padding: '0.75rem' }}>TOTAL GENERAL:</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>{allSalesToday.length}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center', color: '#c084fc' }}>{consolidatedTotalSoups}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', color: '#22c55e' }}>L. {consolidatedTotalCash.toFixed(2)}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', color: '#38bdf8' }}>L. {consolidatedTotalTransfer.toFixed(2)}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', color: '#f97316', fontSize: '1.15rem' }}>L. {consolidatedTotalSales.toFixed(2)}</td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : viewHistory ? (
+        /* VISTA 2: HISTORIAL DE CIERRES ANTERIORES DE LA SUCURSAL */
         <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem' }}>
           <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>Historial de Cierres de {activeBranch.name}</h3>
           {loadingHistory ? (
@@ -368,12 +599,12 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
           )}
         </div>
       ) : (
-        /* VISTA 2: CIERRE DEL DÍA ACTIVO */
+        /* VISTA 3: CIERRE DEL DÍA ACTIVO DE LA SUCURSAL */
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', alignItems: 'flex-start' }}>
           {/* TARJETA 1: FINANZAS Y ARQUEO */}
           <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary-color)' }}>
-              <DollarSign size={20} /> Finanzas de la Sucursal
+              <DollarSign size={20} /> Finanzas del Punto: {activeBranch.name}
             </h3>
 
             {/* RESUMEN DE VENTAS */}
@@ -401,7 +632,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.35rem', borderTop: '2px dashed var(--border-color)', paddingTop: '0.6rem', marginTop: '0.2rem' }}>
-                <span style={{ fontWeight: 800 }}>Total Ventas del Día:</span>
+                <span style={{ fontWeight: 800 }}>Total Ventas del Punto:</span>
                 <strong style={{ color: 'var(--primary-color)' }}>L. {totalSalesAmount.toFixed(2)}</strong>
               </div>
             </div>
@@ -463,7 +694,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
                 <textarea
                   className="input-field"
                   rows={2}
-                  placeholder="Ej. Se pagaron L. 50 de hielo o todo entregado en orden..."
+                  placeholder="Ej. Todo entregado en orden..."
                   value={closureNotes}
                   onChange={e => setClosureNotes(e.target.value)}
                   style={{ width: '100%', resize: 'none' }}
@@ -497,7 +728,7 @@ export default function ExpressCierre({ activeBranch, soups, session, onSessionU
           {/* TARJETA 2: INVENTARIO DE SOPAS Y DISPONIBILIDAD */}
           <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem' }}>
             <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f97316' }}>
-              <PackageCheck size={20} /> Balance de Inventario de Sopas
+              <PackageCheck size={20} /> Balance de Inventario: {activeBranch.name}
             </h3>
 
             <div style={{ overflowX: 'auto' }}>
