@@ -265,7 +265,7 @@ export default function Express() {
       </nav>
 
       {/* 3. VISTAS ACTIVAS PROTEGIDAS */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: '1 0 auto', display: 'flex', flexDirection: 'column', width: '100%' }}>
         {activeTab === 'VENTA' && (
           <ExpressVenta
             activeBranch={activeBranch}
