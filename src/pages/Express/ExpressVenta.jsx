@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Zap, ShoppingBag, Plus, Minus, Banknote, CreditCard, X, AlertTriangle, Coffee, UtensilsCrossed, Check } from 'lucide-react';
+import { Zap, ShoppingBag, Plus, Minus, Banknote, CreditCard, X, AlertTriangle, Coffee, UtensilsCrossed, Check, Receipt } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isExtraItem } from './ExpressConfigSopas';
+import ExpressGastoModal from './ExpressGastoModal';
 
 const BANKS = ['Banco Atlántida', 'BAC Credomatic', 'Ficohsa', 'Banpaís', 'Davivienda', 'Occidente'];
 
@@ -32,6 +33,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
   const [isProcessing, setIsProcessing] = useState(false);
   const [mobileTicketOpen, setMobileTicketOpen] = useState(false);
   const [extrasDrawerOpen, setExtrasDrawerOpen] = useState(false);
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
 
   // Clasificación de productos (Sopas principales vs Extras/Frescos)
   const mainSoups = soups.filter(s => s.active !== false && !isExtraItem(s));
@@ -415,7 +417,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
         {renderTicketContent(false)}
       </div>
 
-      {/* 2. CONTENEDOR DE PRODUCTOS (SOPAS GRANDES + BOTÓN DE EXTRAS) */}
+      {/* 2. CONTENEDOR DE PRODUCTOS (SOPAS GRANDES + BOTÓN DE EXTRAS Y GASTOS) */}
       <div className="express-soup-container">
         {/* Alerta si el día no ha sido aperturado en inventario */}
         {(!session || session.status !== 'OPEN') && (
@@ -452,7 +454,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
           </div>
         )}
 
-        {/* BARRA SUPERIOR: ENCABEZADO DE SOPAS Y BOTÓN DESPLEGABLE DE EXTRAS */}
+        {/* BARRA SUPERIOR: ENCABEZADO DE SOPAS, BOTÓN DE GASTOS Y BOTÓN DE EXTRAS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '0.2rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <UtensilsCrossed size={20} color="var(--primary-color)" />
@@ -461,23 +463,50 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
             </h2>
           </div>
 
-          {/* BOTÓN DESPLEGABLE DE EXTRAS Y FRESCOS */}
-          {extraItems.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            {/* BOTÓN REGISTRAR GASTO DE SUCURSAL */}
             <button
               type="button"
-              className={`express-open-extras-btn ${extrasInTicketCount > 0 ? 'has-items' : ''}`}
-              onClick={() => setExtrasDrawerOpen(true)}
-              title="Abrir menú de bebidas, extras y complementos"
+              className="btn-secondary"
+              style={{
+                padding: '0.55rem 1rem',
+                borderRadius: '25px',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                color: '#f43f5e',
+                border: '1.5px solid #f43f5e',
+                background: 'rgba(244, 63, 94, 0.12)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+              }}
+              onClick={() => setExpenseModalOpen(true)}
+              title="Registrar salida de dinero o gasto operativo de esta sucursal"
             >
-              <Coffee size={18} />
-              <span>🥤 Extras y Frescos ({extraItems.length})</span>
-              {extrasInTicketCount > 0 && (
-                <span className="express-extras-ticket-pill">
-                  {extrasInTicketCount} en ticket
-                </span>
-              )}
+              <Receipt size={17} />
+              <span>💸 Gasto de Caja</span>
             </button>
-          )}
+
+            {/* BOTÓN DESPLEGABLE DE EXTRAS Y FRESCOS */}
+            {extraItems.length > 0 && (
+              <button
+                type="button"
+                className={`express-open-extras-btn ${extrasInTicketCount > 0 ? 'has-items' : ''}`}
+                onClick={() => setExtrasDrawerOpen(true)}
+                title="Abrir menú de bebidas, extras y complementos"
+              >
+                <Coffee size={18} />
+                <span>🥤 Extras y Frescos ({extraItems.length})</span>
+                {extrasInTicketCount > 0 && (
+                  <span className="express-extras-ticket-pill">
+                    {extrasInTicketCount} en ticket
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* GRID DE SOPAS PRINCIPALES CON RECUADROS GRANDES */}
@@ -632,7 +661,14 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
         </>
       )}
 
-      {/* 4. BARRA FLOTANTE MÓVIL (Sticky Bottom en Teléfonos) */}
+      {/* 4. MODAL PARA REGISTRAR GASTO DE SUCURSAL */}
+      <ExpressGastoModal
+        isOpen={expenseModalOpen}
+        onClose={() => setExpenseModalOpen(false)}
+        activeBranch={activeBranch}
+      />
+
+      {/* 5. BARRA FLOTANTE MÓVIL (Sticky Bottom en Teléfonos) */}
       <div className="express-mobile-bar">
         <div
           className="express-mobile-cart-preview"
@@ -645,6 +681,24 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
             L. {totalAmount.toFixed(2)}
           </span>
         </div>
+
+        <button
+          type="button"
+          className="btn-secondary"
+          style={{
+            padding: '0.65rem 0.75rem',
+            borderRadius: '8px',
+            fontSize: '0.82rem',
+            fontWeight: 800,
+            background: '#1e293b',
+            color: '#f43f5e',
+            border: '1.5px solid #f43f5e'
+          }}
+          onClick={() => setExpenseModalOpen(true)}
+          title="Registrar gasto"
+        >
+          💸 Gasto
+        </button>
 
         {extraItems.length > 0 && (
           <button
@@ -676,7 +730,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
         </button>
       </div>
 
-      {/* 5. MODAL / DRAWER TICKET EN TELÉFONO */}
+      {/* 6. MODAL / DRAWER TICKET EN TELÉFONO */}
       {mobileTicketOpen && (
         <>
           <div className="express-mobile-overlay" onClick={() => setMobileTicketOpen(false)} />
