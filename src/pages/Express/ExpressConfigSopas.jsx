@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Check, RefreshCw, Palette } from 'lucide-react';
+import { Plus, Edit2, Trash2, Check, RefreshCw, Palette, Coffee, UtensilsCrossed } from 'lucide-react';
 
 const PRESET_COLORS = [
   { name: 'Ámbar Intenso', bg: '#E65100' },
@@ -20,13 +20,22 @@ const PRESET_COLORS = [
 ];
 
 export const DEFAULT_SOUPS_SEED = [
-  { name: 'Sopa de Res', price: 160, bgColor: '#E65100', active: true },
-  { name: 'Sopa de Mariscos', price: 220, bgColor: '#1565C0', active: true },
-  { name: 'Sopa Marinera', price: 230, bgColor: '#00897B', active: true },
-  { name: 'Sopa de Mondongo', price: 170, bgColor: '#C62828', active: true },
-  { name: 'Sopa de Gallina India', price: 160, bgColor: '#2E7D32', active: true },
-  { name: 'Sopa de Frijoles con Chicharrón', price: 140, bgColor: '#4E342E', active: true }
+  { name: 'Sopa de Res', price: 160, bgColor: '#E65100', category: 'SOPA', active: true },
+  { name: 'Sopa de Mariscos', price: 220, bgColor: '#1565C0', category: 'SOPA', active: true },
+  { name: 'Sopa Marinera', price: 230, bgColor: '#00897B', category: 'SOPA', active: true },
+  { name: 'Sopa de Mondongo', price: 170, bgColor: '#C62828', category: 'SOPA', active: true },
+  { name: 'Sopa de Gallina India', price: 160, bgColor: '#2E7D32', category: 'SOPA', active: true },
+  { name: 'Sopa de Frijoles con Chicharrón', price: 140, bgColor: '#4E342E', category: 'SOPA', active: true }
 ];
+
+// Helper robusto para identificar si un producto es extra/bebida (incluso retroactivamente)
+export const isExtraItem = (item) => {
+  if (!item) return false;
+  if (item.category === 'EXTRA') return true;
+  if (item.category === 'SOPA') return false;
+  // Heurística automática para nombres existentes
+  return /extra|fresco|litro|portatil|bebida|arroz|bandeja|jugo|refresco|soda|agua|tortilla|aguacate/i.test(item.name || '');
+};
 
 export default function ExpressConfigSopas({ onSoupsChanged }) {
   const [soups, setSoups] = useState([]);
@@ -36,8 +45,10 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [bgColor, setBgColor] = useState('#E65100');
+  const [category, setCategory] = useState('SOPA'); // 'SOPA' | 'EXTRA'
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [catalogFilter, setCatalogFilter] = useState('ALL'); // 'ALL' | 'SOPAS' | 'EXTRAS'
 
   useEffect(() => {
     fetchSoups();
@@ -51,7 +62,7 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
 
       if (list.length === 0) {
-        // Sembrar sopas predeterminadas automáticamente para conveniencia del usuario
+        // Sembrar sopas predeterminadas automáticamente
         for (const item of DEFAULT_SOUPS_SEED) {
           const docRef = await addDoc(collection(db, 'express_soups'), {
             ...item,
@@ -66,10 +77,20 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
       setSoups(list);
       if (onSoupsChanged) onSoupsChanged(list);
     } catch (err) {
-      console.error('Error cargando sopas:', err);
-      toast.error('Error al cargar catálogo de sopas');
+      console.error('Error cargando catálogo:', err);
+      toast.error('Error al cargar catálogo');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNameChange = (val) => {
+    setName(val);
+    // Sugerencia automática de categoría si escribe palabras clave
+    if (!editingId) {
+      if (/extra|fresco|litro|portatil|bebida|arroz|bandeja|jugo|refresco|soda|agua/i.test(val)) {
+        setCategory('EXTRA');
+      }
     }
   };
 
@@ -78,6 +99,7 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
     setName(soup.name);
     setPrice(soup.price.toString());
     setBgColor(soup.bgColor || '#E65100');
+    setCategory(soup.category || (isExtraItem(soup) ? 'EXTRA' : 'SOPA'));
     setActive(soup.active !== false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -87,12 +109,13 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
     setName('');
     setPrice('');
     setBgColor('#E65100');
+    setCategory('SOPA');
     setActive(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return toast.error('Ingresa el nombre de la sopa');
+    if (!name.trim()) return toast.error('Ingresa el nombre del producto');
     const numPrice = parseFloat(price);
     if (isNaN(numPrice) || numPrice <= 0) return toast.error('Ingresa un precio válido mayor a 0');
 
@@ -102,36 +125,37 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
         name: name.trim(),
         price: numPrice,
         bgColor: bgColor || '#E65100',
+        category: category || (isExtraItem({ name }) ? 'EXTRA' : 'SOPA'),
         active: active,
         updatedAt: serverTimestamp()
       };
 
       if (editingId) {
         await updateDoc(doc(db, 'express_soups', editingId), payload);
-        toast.success(`Sopa "${name}" actualizada con éxito.`);
+        toast.success(`"${name}" actualizado con éxito.`);
       } else {
         await addDoc(collection(db, 'express_soups'), {
           ...payload,
           createdAt: serverTimestamp()
         });
-        toast.success(`Sopa "${name}" agregada con éxito.`);
+        toast.success(`"${name}" agregado al catálogo con éxito.`);
       }
 
       handleCancel();
       fetchSoups();
     } catch (err) {
       console.error(err);
-      toast.error('Error al guardar sopa');
+      toast.error('Error al guardar producto');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id, sName) => {
-    if (!confirm(`¿Estás seguro de eliminar la sopa "${sName}"?`)) return;
+    if (!confirm(`¿Estás seguro de eliminar "${sName}"?`)) return;
     try {
       await deleteDoc(doc(db, 'express_soups', id));
-      toast.success('Sopa eliminada');
+      toast.success('Producto eliminado del catálogo');
       fetchSoups();
     } catch (err) {
       console.error(err);
@@ -146,25 +170,34 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
         updatedAt: serverTimestamp()
       });
       fetchSoups();
-      toast.success(`Sopa ${!soup.active ? 'activada' : 'desactivada'}`);
+      toast.success(`Producto ${!soup.active ? 'activado' : 'desactivado'}`);
     } catch (err) {
       console.error(err);
       toast.error('Error al cambiar estado');
     }
   };
 
+  const filteredSoups = soups.filter(s => {
+    if (catalogFilter === 'SOPAS') return !isExtraItem(s);
+    if (catalogFilter === 'EXTRAS') return isExtraItem(s);
+    return true;
+  });
+
+  const totalSopasCount = soups.filter(s => !isExtraItem(s)).length;
+  const totalExtrasCount = soups.filter(s => isExtraItem(s)).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Palette size={26} /> Configuración de Sopas y Colores
+            <Palette size={26} /> Configuración de Sopas, Extras y Colores
           </h2>
           <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Personaliza el nombre, precio y el color de fondo de cada sopa para que los cajeros las identifiquen al instante en el móvil.
+            Define qué productos son <strong>Sopas Principales</strong> (visibles en el POS) y cuáles son <strong>Extras / Frescos</strong> (ocultos bajo el botón desplegable).
           </p>
         </div>
-        <button className="btn-secondary" onClick={fetchSoups} title="Recargar">
+        <button className="btn-secondary" onClick={fetchSoups} title="Recargar catálogo">
           <RefreshCw size={18} />
         </button>
       </div>
@@ -174,20 +207,74 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
         <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem' }}>
           <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: editingId ? '#38bdf8' : '#22c55e' }}>
             {editingId ? <Edit2 size={20} /> : <Plus size={20} />}
-            {editingId ? 'Editar Sopa' : 'Nueva Sopa'}
+            {editingId ? 'Editar Producto' : 'Nuevo Producto / Sopa'}
           </h3>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* SELECTOR DE TIPO (SOPA vs EXTRA) */}
             <div>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
-                Nombre de la Sopa *
+                Tipo / Categoría de Producto *
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.6rem 0.5rem',
+                    borderRadius: '8px',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    border: category === 'SOPA' ? '2px solid #f97316' : '1px solid #334155',
+                    background: category === 'SOPA' ? 'rgba(249, 115, 22, 0.2)' : '#1e293b',
+                    color: category === 'SOPA' ? '#f97316' : '#94a3b8'
+                  }}
+                  onClick={() => setCategory('SOPA')}
+                >
+                  <UtensilsCrossed size={16} /> Sopa Principal
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.6rem 0.5rem',
+                    borderRadius: '8px',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    border: category === 'EXTRA' ? '2px solid #38bdf8' : '1px solid #334155',
+                    background: category === 'EXTRA' ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+                    color: category === 'EXTRA' ? '#38bdf8' : '#94a3b8'
+                  }}
+                  onClick={() => setCategory('EXTRA')}
+                >
+                  <Coffee size={16} /> Extra / Fresco
+                </button>
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginTop: '4px' }}>
+                {category === 'SOPA' 
+                  ? '• Aparece directamente en el recuadro grande del POS móvil.'
+                  : '• Aparece desplegable al presionar el botón "Extras y Frescos".'}
+              </span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
+                Nombre del Producto *
               </label>
               <input
                 type="text"
                 className="input-field"
-                placeholder="Ej. Sopa de Res Grande"
+                placeholder={category === 'SOPA' ? 'Ej. Sopa de Res Grande' : 'Ej. Fresco 2 Litros o Extra Arroz'}
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={e => handleNameChange(e.target.value)}
                 required
                 style={{ width: '100%' }}
               />
@@ -248,7 +335,7 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
             {/* VISTA PREVIA DEL BOTÓN TÁCTIL */}
             <div>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
-                Vista Previa del Botón en Teléfono:
+                Vista Previa del Botón:
               </label>
               <div
                 className="express-soup-card"
@@ -262,7 +349,7 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
                 <div className="express-soup-stock-badge">
                   <span>30 disp.</span>
                 </div>
-                <div className="express-soup-name">{name || 'Nombre de la Sopa'}</div>
+                <div className="express-soup-name">{name || (category === 'SOPA' ? 'Nombre de Sopa' : 'Nombre de Extra')}</div>
                 <div className="express-soup-price-tag">
                   L. {parseFloat(price || '0').toFixed(2)}
                 </div>
@@ -277,7 +364,7 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
                 disabled={saving}
               >
                 <Check size={18} />
-                {saving ? 'Guardando...' : editingId ? 'Guardar Cambios' : 'Crear Sopa'}
+                {saving ? 'Guardando...' : editingId ? 'Guardar Cambios' : 'Crear Producto'}
               </button>
               {editingId && (
                 <button
@@ -293,91 +380,160 @@ export default function ExpressConfigSopas({ onSoupsChanged }) {
           </form>
         </div>
 
-        {/* LISTADO DE SOPAS */}
+        {/* LISTADO DE PRODUCTOS CON PESTAÑAS DE FILTRO */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-            Sopas Registradas ({soups.length})
-          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+              Catálogo Registrado ({soups.length})
+            </h3>
+
+            {/* PESTAÑAS DE FILTRO */}
+            <div style={{ display: 'flex', gap: '0.35rem', background: '#1e293b', padding: '3px', borderRadius: '8px' }}>
+              <button
+                type="button"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: catalogFilter === 'ALL' ? '#f97316' : 'transparent',
+                  color: catalogFilter === 'ALL' ? '#ffffff' : '#94a3b8'
+                }}
+                onClick={() => setCatalogFilter('ALL')}
+              >
+                Todos ({soups.length})
+              </button>
+              <button
+                type="button"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: catalogFilter === 'SOPAS' ? '#f97316' : 'transparent',
+                  color: catalogFilter === 'SOPAS' ? '#ffffff' : '#94a3b8'
+                }}
+                onClick={() => setCatalogFilter('SOPAS')}
+              >
+                🍲 Sopas ({totalSopasCount})
+              </button>
+              <button
+                type="button"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: catalogFilter === 'EXTRAS' ? '#38bdf8' : 'transparent',
+                  color: catalogFilter === 'EXTRAS' ? '#ffffff' : '#94a3b8'
+                }}
+                onClick={() => setCatalogFilter('EXTRAS')}
+              >
+                🥤 Extras ({totalExtrasCount})
+              </button>
+            </div>
+          </div>
 
           {loading ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Cargando catálogo...</div>
-          ) : soups.length === 0 ? (
+          ) : filteredSoups.length === 0 ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--surface-color)', borderRadius: '12px' }}>
-              No hay sopas creadas. Usa el formulario de la izquierda para agregar la primera.
+              No hay productos en esta categoría.
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem' }}>
-              {soups.map(s => (
-                <div
-                  key={s.id}
-                  style={{
-                    backgroundColor: 'var(--surface-color)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '12px',
-                    padding: '0.85rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem',
-                    borderLeft: `6px solid ${s.bgColor || '#E65100'}`
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <strong style={{ fontSize: '1.05rem', color: 'var(--text-primary)', display: 'block' }}>{s.name}</strong>
-                      <span style={{ fontSize: '1.15rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
-                        L. {Number(s.price).toFixed(2)}
-                      </span>
+              {filteredSoups.map(s => {
+                const isExtra = isExtraItem(s);
+                return (
+                  <div
+                    key={s.id}
+                    style={{
+                      backgroundColor: 'var(--surface-color)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                      padding: '0.85rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem',
+                      borderLeft: `6px solid ${s.bgColor || '#E65100'}`
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '3px' }}>
+                          <span style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: isExtra ? 'rgba(56, 189, 248, 0.15)' : 'rgba(249, 115, 22, 0.15)',
+                            color: isExtra ? '#38bdf8' : '#f97316'
+                          }}>
+                            {isExtra ? '🥤 EXTRA / FRESCO' : '🍲 SOPA'}
+                          </span>
+                        </div>
+                        <strong style={{ fontSize: '1.05rem', color: 'var(--text-primary)', display: 'block' }}>{s.name}</strong>
+                        <span style={{ fontSize: '1.15rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                          L. {Number(s.price).toFixed(2)}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: '50%',
+                          backgroundColor: s.bgColor || '#E65100',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                        }}
+                        title="Color asignado"
+                      />
                     </div>
-                    <div
-                      style={{
-                        width: '26px',
-                        height: '26px',
-                        borderRadius: '50%',
-                        backgroundColor: s.bgColor || '#E65100',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
-                      }}
-                      title="Color asignado"
-                    />
-                  </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleActive(s)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        color: s.active !== false ? '#22c55e' : '#9ca3af'
-                      }}
-                    >
-                      {s.active !== false ? '● Activa' : '○ Inactiva'}
-                    </button>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
                       <button
                         type="button"
-                        className="btn-secondary"
-                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
-                        onClick={() => handleEdit(s)}
-                        title="Editar"
+                        onClick={() => handleToggleActive(s)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          color: s.active !== false ? '#22c55e' : '#9ca3af'
+                        }}
                       >
-                        <Edit2 size={14} />
+                        {s.active !== false ? '● Activa' : '○ Inactiva'}
                       </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', color: '#ef4444' }}
-                        onClick={() => handleDelete(s.id, s.name)}
-                        title="Eliminar"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+                          onClick={() => handleEdit(s)}
+                          title="Editar"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', color: '#ef4444' }}
+                          onClick={() => handleDelete(s.id, s.name)}
+                          title="Eliminar"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

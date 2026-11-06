@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store } from 'lucide-react';
+import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store, UtensilsCrossed, Coffee } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { isExtraItem } from './ExpressConfigSopas';
 
 export default function ExpressInventario({ activeBranch, branches = [], onSelectBranch, isAdmin = false, soups, session, onSessionUpdate }) {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [initialStocks, setInitialStocks] = useState({});
   const [initialCash, setInitialCash] = useState('0');
+  const [invFilter, setInvFilter] = useState('ALL'); // 'ALL' | 'SOPAS' | 'EXTRAS'
   
   // Modal / Quick Restock state
   const [restockSoup, setRestockSoup] = useState(null);
@@ -56,7 +58,7 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
         date: todayStr,
         status: 'OPEN',
         openedAt: serverTimestamp(),
-        openedBy: currentUser?.email || 'cajero',
+        openedBy: currentUser?.email || 'admin',
         initialStock: stockMap,
         currentStock: stockMap,
         soldCount: {},
@@ -126,6 +128,15 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
 
   const isSessionOpen = session && session.status === 'OPEN';
 
+  const mainSoups = soups.filter(s => s.active !== false && !isExtraItem(s));
+  const extraItems = soups.filter(s => s.active !== false && isExtraItem(s));
+
+  const filteredInventorySoups = soups.filter(s => {
+    if (invFilter === 'SOPAS') return !isExtraItem(s);
+    if (invFilter === 'EXTRAS') return isExtraItem(s);
+    return true;
+  });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* HEADER */}
@@ -165,49 +176,95 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
 
       {/* CASO 1: NO HAY SESIÓN ABIERTA -> FORMULARIO DE APERTURA */}
       {!isSessionOpen ? (
-        <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.5rem', maxWidth: '800px' }}>
+        <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.5rem', maxWidth: '850px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', color: '#f59e0b' }}>
             <AlertCircle size={28} />
             <div>
               <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-primary)' }}>Apertura de Inventario del Día</h3>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Ingresa cuántas unidades de cada sopa tienes listas para vender hoy en esta sucursal.
+                Ingresa cuántas unidades de cada sopa o extra tienes listas para vender hoy en esta sucursal.
               </span>
             </div>
           </div>
 
-          <form onSubmit={handleOpenDay} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-              {soups.filter(s => s.active !== false).map(soup => (
-                <div
-                  key={soup.id}
-                  style={{
-                    backgroundColor: 'var(--bg-color)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '10px',
-                    padding: '0.85rem 1rem',
-                    borderLeft: `5px solid ${soup.bgColor || '#E65100'}`
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>{soup.name}</strong>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>L. {Number(soup.price).toFixed(2)}</span>
-                  </div>
+          <form onSubmit={handleOpenDay} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* SECCIÓN SOPAS PRINCIPALES */}
+            <div>
+              <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--primary-color)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <UtensilsCrossed size={18} /> Sopas Principales ({mainSoups.length})
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+                {mainSoups.map(soup => (
+                  <div
+                    key={soup.id}
+                    style={{
+                      backgroundColor: 'var(--bg-color)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      padding: '0.85rem 1rem',
+                      borderLeft: `5px solid ${soup.bgColor || '#E65100'}`
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{soup.name}</strong>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>L. {Number(soup.price).toFixed(2)}</span>
+                    </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Unidades:</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input-field"
-                      style={{ width: '100%', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}
-                      value={initialStocks[soup.id] ?? 0}
-                      onChange={e => handleStockInputChange(soup.id, e.target.value)}
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Unidades:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-field"
+                        style={{ width: '100%', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}
+                        value={initialStocks[soup.id] ?? 0}
+                        onChange={e => handleStockInputChange(soup.id, e.target.value)}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+
+            {/* SECCIÓN EXTRAS Y BEBIDAS */}
+            {extraItems.length > 0 && (
+              <div>
+                <h4 style={{ margin: '0 0 0.75rem 0', color: '#38bdf8', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Coffee size={18} /> Extras, Frescos y Complementos ({extraItems.length})
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+                  {extraItems.map(extra => (
+                    <div
+                      key={extra.id}
+                      style={{
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '10px',
+                        padding: '0.85rem 1rem',
+                        borderLeft: `5px solid ${extra.bgColor || '#38bdf8'}`
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{extra.name}</strong>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>L. {Number(extra.price).toFixed(2)}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Unidades:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="input-field"
+                          style={{ width: '100%', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}
+                          value={initialStocks[extra.id] ?? 0}
+                          onChange={e => handleStockInputChange(extra.id, e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ background: 'var(--bg-color)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', marginTop: '0.5rem' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>
@@ -263,10 +320,59 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
           </div>
 
           <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem', overflowX: 'auto' }}>
+            {/* PESTAÑAS DE FILTRO */}
+            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: invFilter === 'ALL' ? '#f97316' : '#1e293b',
+                  color: invFilter === 'ALL' ? '#ffffff' : '#94a3b8',
+                  border: '1px solid #334155'
+                }}
+                onClick={() => setInvFilter('ALL')}
+              >
+                Todos ({soups.length})
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: invFilter === 'SOPAS' ? '#f97316' : '#1e293b',
+                  color: invFilter === 'SOPAS' ? '#ffffff' : '#94a3b8',
+                  border: '1px solid #334155'
+                }}
+                onClick={() => setInvFilter('SOPAS')}
+              >
+                🍲 Solo Sopas ({mainSoups.length})
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  background: invFilter === 'EXTRAS' ? '#38bdf8' : '#1e293b',
+                  color: invFilter === 'EXTRAS' ? '#ffffff' : '#94a3b8',
+                  border: '1px solid #334155'
+                }}
+                onClick={() => setInvFilter('EXTRAS')}
+              >
+                🥤 Solo Extras/Frescos ({extraItems.length})
+              </button>
+            </div>
+
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  <th style={{ padding: '0.75rem' }}>SOPA</th>
+                  <th style={{ padding: '0.75rem' }}>PRODUCTO</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>INICIAL</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>VENDIDAS HOY</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>DISPONIBLES</th>
@@ -274,12 +380,13 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
                 </tr>
               </thead>
               <tbody>
-                {soups.map(s => {
+                {filteredInventorySoups.map(s => {
                   const initial = session.initialStock?.[s.id] || 0;
                   const current = session.currentStock?.[s.id] ?? initial;
                   const sold = initial - current > 0 ? initial - current : (session.soldCount?.[s.id] || 0);
                   const isLow = current <= 5;
                   const isZero = current <= 0;
+                  const isExtra = isExtraItem(s);
 
                   return (
                     <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
@@ -294,7 +401,19 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
                           }}
                         />
                         <div>
-                          <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>{s.name}</strong>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              backgroundColor: isExtra ? 'rgba(56, 189, 248, 0.15)' : 'rgba(249, 115, 22, 0.15)',
+                              color: isExtra ? '#38bdf8' : '#f97316'
+                            }}>
+                              {isExtra ? 'EXTRA' : 'SOPA'}
+                            </span>
+                            <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{s.name}</strong>
+                          </div>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>L. {Number(s.price).toFixed(2)}</div>
                         </div>
                       </td>
@@ -311,7 +430,7 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
                             padding: '4px 10px',
                             borderRadius: '20px',
                             fontWeight: 800,
-                            fontSize: '1rem',
+                            fontSize: '0.95rem',
                             backgroundColor: isZero ? 'rgba(239, 68, 68, 0.2)' : isLow ? 'rgba(245, 158, 11, 0.2)' : 'rgba(34, 197, 94, 0.2)',
                             color: isZero ? '#ef4444' : isLow ? '#f59e0b' : '#22c55e'
                           }}
@@ -341,7 +460,7 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
         </div>
       )}
 
-      {/* MODAL REABASTECER SOPA */}
+      {/* MODAL REABASTECER PRODUCTO */}
       {restockSoup && (
         <div style={{
           position: 'fixed',
@@ -354,9 +473,11 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
           padding: '1rem'
         }}>
           <div className="card" style={{ background: 'var(--surface-color)', maxWidth: '400px', width: '100%', padding: '1.5rem', borderRadius: '16px' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)' }}>Reabastecer Sopa</h3>
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)' }}>
+              Reabastecer {isExtraItem(restockSoup) ? 'Extra / Producto' : 'Sopa'}
+            </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-              Agrega unidades enviadas desde la cocina central para: <strong>{restockSoup.name}</strong>
+              Agrega unidades enviadas desde la cocina o bodega para: <strong>{restockSoup.name}</strong>
             </p>
 
             <form onSubmit={handleQuickRestock} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { collection, addDoc, updateDoc, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Zap, ShoppingBag, Trash2, Plus, Minus, Check, Banknote, CreditCard, ChevronRight, X, AlertTriangle } from 'lucide-react';
+import { Zap, ShoppingBag, Plus, Minus, Banknote, CreditCard, X, AlertTriangle, Coffee, UtensilsCrossed, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { isExtraItem } from './ExpressConfigSopas';
 
-const QUICK_CASH_OPTIONS = [100, 200, 500, 1000];
 const BANKS = ['Banco Atlántida', 'BAC Credomatic', 'Ficohsa', 'Banpaís', 'Davivienda', 'Occidente'];
 
 export default function ExpressVenta({ activeBranch, soups, session, isAdmin: propIsAdmin, onSessionUpdate, onOpenInventoryTab }) {
@@ -31,16 +31,26 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
   const [cashReceived, setCashReceived] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [mobileTicketOpen, setMobileTicketOpen] = useState(false);
+  const [extrasDrawerOpen, setExtrasDrawerOpen] = useState(false);
+
+  // Clasificación de productos (Sopas principales vs Extras/Frescos)
+  const mainSoups = soups.filter(s => s.active !== false && !isExtraItem(s));
+  const extraItems = soups.filter(s => s.active !== false && isExtraItem(s));
 
   // Totales
   const totalAmount = ticketItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
   const totalItemsCount = ticketItems.reduce((acc, item) => acc + item.qty, 0);
 
+  // Cantidad de extras actualmente en el ticket
+  const extrasInTicketCount = ticketItems
+    .filter(item => isExtraItem(item))
+    .reduce((acc, item) => acc + item.qty, 0);
+
   // Cambio
   const numCashReceived = parseFloat(cashReceived) || 0;
   const changeDue = Math.max(0, numCashReceived - totalAmount);
 
-  // Agregar sopa al ticket con 1 clic en la tarjeta
+  // Agregar sopa o extra al ticket con 1 clic en la tarjeta
   const handleAddSoup = (soup) => {
     // Verificar stock si hay sesión abierta
     const availableStock = session?.currentStock?.[soup.id];
@@ -64,12 +74,13 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
           name: soup.name,
           price: soup.price,
           qty: 1,
-          bgColor: soup.bgColor || '#E65100'
+          bgColor: soup.bgColor || '#E65100',
+          category: soup.category || (isExtraItem(soup) ? 'EXTRA' : 'SOPA')
         }];
       }
     });
 
-    // Pequeño feedback táctil
+    // Pequeño feedback táctil en móviles
     if (navigator.vibrate) navigator.vibrate(40);
   };
 
@@ -96,7 +107,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
   // CONFIRMAR VENTA EN 1 CLIC
   const handleConfirmSale = async () => {
     if (ticketItems.length === 0) {
-      return toast.error('El ticket está vacío. Toca una sopa para agregarla.');
+      return toast.error('El ticket está vacío. Toca un producto para agregarlo.');
     }
     if (!activeBranch) {
       return toast.error('Selecciona una sucursal primero.');
@@ -105,6 +116,13 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
     setIsProcessing(true);
     const todayStr = new Date().toISOString().split('T')[0];
     const sessionId = session?.id || `${activeBranch.id}_${todayStr}`;
+
+    const finalCashReceived = paymentMethod === 'EFECTIVO' 
+      ? (numCashReceived > 0 ? numCashReceived : totalAmount) 
+      : null;
+    const finalChange = paymentMethod === 'EFECTIVO' && numCashReceived > totalAmount 
+      ? changeDue 
+      : 0;
 
     try {
       const salePayload = {
@@ -119,20 +137,21 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
           price: item.price,
           qty: item.qty,
           subtotal: item.price * item.qty,
-          bgColor: item.bgColor
+          bgColor: item.bgColor,
+          category: item.category || 'SOPA'
         })),
         total: totalAmount,
         totalQty: totalItemsCount,
         paymentMethod: paymentMethod, // 'EFECTIVO' o 'TRANSFERENCIA'
         bank: paymentMethod === 'TRANSFERENCIA' ? selectedBank : null,
-        cashReceived: paymentMethod === 'EFECTIVO' ? (numCashReceived > 0 ? numCashReceived : totalAmount) : null,
-        change: paymentMethod === 'EFECTIVO' && numCashReceived > totalAmount ? changeDue : 0,
+        cashReceived: finalCashReceived,
+        change: finalChange,
         createdBy: currentUser?.email || 'cajero_express',
         status: 'COMPLETED'
       };
 
       // 1. Guardar la venta en express_sales
-      const saleDocRef = await addDoc(collection(db, 'express_sales'), salePayload);
+      await addDoc(collection(db, 'express_sales'), salePayload);
 
       // 2. Si hay sesión activa en express_sessions, descontar inventario en caliente
       if (session && session.status === 'OPEN') {
@@ -174,7 +193,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
       // Feedback de éxito y reseteo inmediato del ticket
       toast.success(`¡Venta Confirmada! L. ${totalAmount.toFixed(2)} (${paymentMethod})`, {
         description: paymentMethod === 'EFECTIVO' && numCashReceived > totalAmount
-          ? `Cambio a entregar: L. ${changeDue.toFixed(2)}`
+          ? `Vuelto a entregar: L. ${changeDue.toFixed(2)}`
           : 'Ticket registrado correctamente.',
         duration: 3500
       });
@@ -183,6 +202,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
       setTicketItems([]);
       setCashReceived('');
       setMobileTicketOpen(false);
+      setExtrasDrawerOpen(false);
       setPaymentMethod('EFECTIVO'); // Volver a predeterminado
     } catch (err) {
       console.error('Error al registrar venta express:', err);
@@ -222,7 +242,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
             <ShoppingBag size={40} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
             <div>Ticket vacío</div>
             <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '4px' }}>
-              Toca los recuadros de sopas para agregarlas a la orden
+              Toca los recuadros de sopas o extras para agregarlos a la orden
             </div>
           </div>
         ) : (
@@ -305,38 +325,62 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
           </div>
         )}
 
-        {/* SI ES EFECTIVO -> OPCIONAL PARA CALCULAR CAMBIO RÁPIDO */}
-        {paymentMethod === 'EFECTIVO' && totalAmount > 0 && (
-          <div style={{ background: '#f3f4f6', padding: '0.5rem', borderRadius: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4b5563' }}>Pago con billete de:</span>
-              {numCashReceived > totalAmount && (
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#16a34a' }}>
-                  Cambio: L. {changeDue.toFixed(2)}
-                </span>
+        {/* SI ES EFECTIVO -> INGRESO DIRECTO DE MONTO PAGADO Y CAMBIO EN VIVO */}
+        {paymentMethod === 'EFECTIVO' && (
+          <div className="express-cash-section">
+            <div className="express-cash-header">
+              <label className="express-cash-label">
+                <Banknote size={15} /> Efectivo Recibido:
+              </label>
+              {cashReceived && (
+                <button
+                  type="button"
+                  className="express-cash-clear"
+                  onClick={() => setCashReceived('')}
+                >
+                  Limpiar
+                </button>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '0.3rem' }}>
+
+            <div className="express-cash-input-wrap">
+              <span className="express-currency-symbol">L.</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                min="0"
+                placeholder={totalAmount > 0 ? `Ej. ${totalAmount.toFixed(0)} o 500` : '0.00'}
+                value={cashReceived}
+                onChange={e => setCashReceived(e.target.value)}
+                className="express-cash-input"
+                autoComplete="off"
+              />
               <button
                 type="button"
-                className="btn-secondary"
-                style={{ flex: 1, padding: '0.25rem', fontSize: '0.75rem', background: cashReceived === totalAmount.toString() ? '#e5e7eb' : 'white' }}
-                onClick={() => setCashReceived(totalAmount.toString())}
+                className="express-cash-exact-btn"
+                onClick={() => setCashReceived(totalAmount > 0 ? totalAmount.toString() : '')}
+                title="Pago con monto exacto"
               >
                 Exacto
               </button>
-              {QUICK_CASH_OPTIONS.map(val => (
-                <button
-                  key={val}
-                  type="button"
-                  className="btn-secondary"
-                  style={{ flex: 1, padding: '0.25rem', fontSize: '0.75rem', background: cashReceived === val.toString() ? '#e5e7eb' : 'white' }}
-                  onClick={() => setCashReceived(val.toString())}
-                >
-                  L.{val}
-                </button>
-              ))}
             </div>
+
+            {/* CÁLCULO DE CAMBIO / VUELTO EN TIEMPO REAL */}
+            {totalAmount > 0 && numCashReceived > 0 && (
+              <div className={`express-cash-change-box ${numCashReceived >= totalAmount ? 'ok' : 'pending'}`}>
+                {numCashReceived > totalAmount ? (
+                  <>
+                    <span className="change-title">CAMBIO / VUELTO:</span>
+                    <strong className="change-val">L. {changeDue.toFixed(2)}</strong>
+                  </>
+                ) : numCashReceived === totalAmount ? (
+                  <span className="change-exact">✅ Pago Exacto (Sin vuelto)</span>
+                ) : (
+                  <span className="change-missing">⚠️ Faltan: L. {(totalAmount - numCashReceived).toFixed(2)}</span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -371,7 +415,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
         {renderTicketContent(false)}
       </div>
 
-      {/* 2. RECUADROS GRANDES DE SOPAS */}
+      {/* 2. CONTENEDOR DE PRODUCTOS (SOPAS GRANDES + BOTÓN DE EXTRAS) */}
       <div className="express-soup-container">
         {/* Alerta si el día no ha sido aperturado en inventario */}
         {(!session || session.status !== 'OPEN') && (
@@ -408,54 +452,218 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
           </div>
         )}
 
-        {/* GRID DE SOPAS CON RECUADROS GRANDES */}
-        <div className="express-soup-grid">
-          {soups.filter(s => s.active !== false).map(soup => {
-            const curStock = session?.currentStock?.[soup.id];
-            const isOutOfStock = session && session.status === 'OPEN' && curStock !== undefined && curStock <= 0;
-            const isLowStock = session && session.status === 'OPEN' && curStock !== undefined && curStock > 0 && curStock <= 5;
+        {/* BARRA SUPERIOR: ENCABEZADO DE SOPAS Y BOTÓN DESPLEGABLE DE EXTRAS */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '0.2rem 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <UtensilsCrossed size={20} color="var(--primary-color)" />
+            <h2 style={{ margin: 0, fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800 }}>
+              Sopas Disponibles ({mainSoups.length})
+            </h2>
+          </div>
 
-            return (
-              <div
-                key={soup.id}
-                className={`express-soup-card ${isOutOfStock ? 'out-of-stock' : ''}`}
-                style={{
-                  backgroundColor: soup.bgColor || '#E65100',
-                  color: '#ffffff'
-                }}
-                onClick={() => handleAddSoup(soup)}
-                title={`Agregar 1 ${soup.name}`}
-              >
-                {/* BADGE DE STOCK DISPONIBLE */}
-                {session && session.status === 'OPEN' && curStock !== undefined && (
-                  <div className={`express-soup-stock-badge ${isOutOfStock || isLowStock ? 'low' : ''}`}>
-                    {isOutOfStock ? 'AGOTADO' : `${curStock} disp.`}
-                  </div>
-                )}
-
-                <div className="express-soup-name">{soup.name}</div>
-                <div className="express-soup-price-tag">
-                  L. {Number(soup.price).toFixed(2)}
-                </div>
-              </div>
-            );
-          })}
+          {/* BOTÓN DESPLEGABLE DE EXTRAS Y FRESCOS */}
+          {extraItems.length > 0 && (
+            <button
+              type="button"
+              className={`express-open-extras-btn ${extrasInTicketCount > 0 ? 'has-items' : ''}`}
+              onClick={() => setExtrasDrawerOpen(true)}
+              title="Abrir menú de bebidas, extras y complementos"
+            >
+              <Coffee size={18} />
+              <span>🥤 Extras y Frescos ({extraItems.length})</span>
+              {extrasInTicketCount > 0 && (
+                <span className="express-extras-ticket-pill">
+                  {extrasInTicketCount} en ticket
+                </span>
+              )}
+            </button>
+          )}
         </div>
+
+        {/* GRID DE SOPAS PRINCIPALES CON RECUADROS GRANDES */}
+        {mainSoups.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--surface-color)', borderRadius: '14px' }}>
+            No hay sopas principales activas. Puedes configurarlas en la pestaña <strong>Configurar Sopas</strong>.
+          </div>
+        ) : (
+          <div className="express-soup-grid">
+            {mainSoups.map(soup => {
+              const curStock = session?.currentStock?.[soup.id];
+              const isOutOfStock = session && session.status === 'OPEN' && curStock !== undefined && curStock <= 0;
+              const isLowStock = session && session.status === 'OPEN' && curStock !== undefined && curStock > 0 && curStock <= 5;
+              const inTicket = ticketItems.find(it => it.soupId === soup.id);
+
+              return (
+                <div
+                  key={soup.id}
+                  className={`express-soup-card ${isOutOfStock ? 'out-of-stock' : ''}`}
+                  style={{
+                    backgroundColor: soup.bgColor || '#E65100',
+                    color: '#ffffff',
+                    boxShadow: inTicket ? '0 0 0 3px #22c55e, 0 8px 20px rgba(0,0,0,0.5)' : undefined
+                  }}
+                  onClick={() => handleAddSoup(soup)}
+                  title={`Agregar 1 ${soup.name}`}
+                >
+                  {/* BADGE DE STOCK DISPONIBLE */}
+                  {session && session.status === 'OPEN' && curStock !== undefined && (
+                    <div className={`express-soup-stock-badge ${isOutOfStock || isLowStock ? 'low' : ''}`}>
+                      {isOutOfStock ? 'AGOTADO' : `${curStock} disp.`}
+                    </div>
+                  )}
+
+                  {inTicket && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '0.6rem',
+                      left: '0.6rem',
+                      background: '#22c55e',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.75rem',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.4)'
+                    }}>
+                      ✓ {inTicket.qty} en orden
+                    </div>
+                  )}
+
+                  <div className="express-soup-name" style={{ marginTop: inTicket ? '1.5rem' : '0.5rem' }}>
+                    {soup.name}
+                  </div>
+                  <div className="express-soup-price-tag">
+                    L. {Number(soup.price).toFixed(2)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* 3. BARRA FLOTANTE MÓVIL (Sticky Bottom en Teléfonos) */}
+      {/* 3. MODAL / DRAWER DE EXTRAS Y FRESCOS DESPLEGABLE */}
+      {extrasDrawerOpen && (
+        <>
+          <div className="express-drawer-overlay" onClick={() => setExtrasDrawerOpen(false)} />
+          <div className="express-extras-drawer">
+            <div className="express-drawer-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <Coffee size={24} color="#38bdf8" />
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#ffffff', fontWeight: 800 }}>
+                    Extras, Frescos y Complementos
+                  </h3>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                    Toca cualquier producto para sumarlo a la orden actual
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="express-drawer-close-btn"
+                onClick={() => setExtrasDrawerOpen(false)}
+                title="Cerrar panel de extras"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="express-drawer-body">
+              {extraItems.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+                  No hay extras registrados.
+                </div>
+              ) : (
+                <div className="express-extras-grid">
+                  {extraItems.map(extra => {
+                    const inTicket = ticketItems.find(it => it.soupId === extra.id);
+                    const curStock = session?.currentStock?.[extra.id];
+                    const isOutOfStock = session && session.status === 'OPEN' && curStock !== undefined && curStock <= 0;
+
+                    return (
+                      <div
+                        key={extra.id}
+                        className={`express-extra-card ${inTicket ? 'in-ticket' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
+                        style={{
+                          backgroundColor: extra.bgColor || '#334155',
+                          color: '#ffffff'
+                        }}
+                        onClick={() => handleAddSoup(extra)}
+                      >
+                        {inTicket && (
+                          <div className="express-extra-in-ticket-badge">
+                            ✓ {inTicket.qty} en orden
+                          </div>
+                        )}
+                        {session && session.status === 'OPEN' && curStock !== undefined && (
+                          <div className="express-extra-stock-badge">
+                            {isOutOfStock ? 'AGOTADO' : `${curStock} disp.`}
+                          </div>
+                        )}
+                        <div className="express-extra-name" style={{ marginTop: inTicket ? '1.2rem' : '0' }}>
+                          {extra.name}
+                        </div>
+                        <div className="express-extra-price">
+                          L. {Number(extra.price).toFixed(2)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="express-drawer-footer">
+              <div className="express-drawer-footer-info">
+                <span>Items en orden: <strong style={{ color: '#ffffff' }}>{totalItemsCount}</strong></span>
+                <span>Total de venta: <strong style={{ color: '#ea580c', fontSize: '1.15rem' }}>L. {totalAmount.toFixed(2)}</strong></span>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ padding: '0.75rem 1.4rem', fontWeight: 800, fontSize: '0.95rem', borderRadius: '10px' }}
+                onClick={() => setExtrasDrawerOpen(false)}
+              >
+                <Check size={18} /> Listo / Volver a Sopas
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 4. BARRA FLOTANTE MÓVIL (Sticky Bottom en Teléfonos) */}
       <div className="express-mobile-bar">
         <div
           className="express-mobile-cart-preview"
           onClick={() => setMobileTicketOpen(true)}
         >
           <span className="express-mobile-cart-count">
-            🛒 {totalItemsCount} {totalItemsCount === 1 ? 'sopa' : 'sopas'} (Ver Ticket)
+            🛒 {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'} (Ver Ticket)
           </span>
           <span className="express-mobile-cart-total">
             L. {totalAmount.toFixed(2)}
           </span>
         </div>
+
+        {extraItems.length > 0 && (
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{
+              padding: '0.65rem 0.8rem',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              background: '#1e293b',
+              color: '#38bdf8',
+              border: '1.5px solid #38bdf8'
+            }}
+            onClick={() => setExtrasDrawerOpen(true)}
+          >
+            🥤 Extras {extrasInTicketCount > 0 ? `(${extrasInTicketCount})` : ''}
+          </button>
+        )}
 
         <button
           type="button"
@@ -468,7 +676,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
         </button>
       </div>
 
-      {/* 4. MODAL / DRAWER TICKET EN TELÉFONO */}
+      {/* 5. MODAL / DRAWER TICKET EN TELÉFONO */}
       {mobileTicketOpen && (
         <>
           <div className="express-mobile-overlay" onClick={() => setMobileTicketOpen(false)} />

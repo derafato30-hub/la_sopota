@@ -616,3 +616,361 @@
   box-shadow: 0 0 0 2px var(--primary-color);
   transform: scale(1.1);
 }
+
+
+/* EXTRAS & FRESCOS DRAWER / MODAL */
+.express-open-extras-btn {
+  background: #1e293b;
+  border: 1.5px solid #38bdf8;
+  color: #ffffff;
+  padding: 0.55rem 1.15rem;
+  border-radius: 25px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+  user-select: none;
+}
+
+.express-open-extras-btn:hover {
+  background: #0284c7;
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(56, 189, 248, 0.35);
+}
+
+.express-open-extras-btn:active {
+  transform: scale(0.96);
+}
+
+.express-open-extras-btn.has-items {
+  border-color: #f97316;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+}
+
+.express-extras-ticket-pill {
+  background: #f97316;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.express-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(5px);
+  z-index: 1100;
+}
+
+.express-extras-drawer {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92%;
+  max-width: 680px;
+  max-height: 85vh;
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  z-index: 1101;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.express-drawer-header {
+  background: #1e293b;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.express-drawer-close-btn {
+  background: #334155;
+  border: none;
+  color: #ffffff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.express-drawer-close-btn:hover {
+  background: #ef4444;
+  transform: scale(1.05);
+}
+
+.express-drawer-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.express-extras-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.85rem;
+}
+
+.express-extra-card {
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: all 0.16s ease;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.express-extra-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.express-extra-card:active {
+  transform: scale(0.96);
+}
+
+.express-extra-card.in-ticket {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.5) !important;
+}
+
+.express-extra-card.out-of-stock {
+  opacity: 0.6;
+  filter: grayscale(0.5);
+}
+
+.express-extra-in-ticket-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: #22c55e;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+.express-extra-stock-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.express-extra-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.express-extra-price {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #ffedd5;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  align-self: flex-start;
+  margin-top: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.express-drawer-footer {
+  background: #1e293b;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.express-drawer-footer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+/* EFECTIVO MANUAL INPUT & CAMBIO */
+.express-cash-section {
+  background: #f8fafc;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.express-cash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.express-cash-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.express-cash-clear {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.express-cash-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  position: relative;
+}
+
+.express-currency-symbol {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 800;
+  color: #64748b;
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.express-cash-input {
+  width: 100%;
+  padding: 0.55rem 0.6rem 0.55rem 1.85rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  background: #ffffff;
+  border: 2px solid #94a3b8;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.15s;
+}
+
+.express-cash-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+
+.express-cash-exact-btn {
+  padding: 0.55rem 0.85rem;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.express-cash-exact-btn:hover {
+  background: #1d4ed8;
+}
+
+.express-cash-change-box {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.express-cash-change-box.ok {
+  background: #dcfce7;
+  border: 1.5px solid #86efac;
+  color: #15803d;
+}
+
+.express-cash-change-box.pending {
+  background: #fee2e2;
+  border: 1.5px solid #fca5a5;
+  color: #b91c1c;
+}
+
+.express-cash-change-box .change-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.express-cash-change-box .change-val {
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.express-cash-change-box .change-exact {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #15803d;
+}
+
+.express-cash-change-box .change-missing {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #b91c1c;
+}
+
+@media (max-width: 899px) {
+  .express-extras-drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    width: 100%;
+    border-radius: 24px 24px 0 0;
+    max-height: 85vh;
+  }
+}
