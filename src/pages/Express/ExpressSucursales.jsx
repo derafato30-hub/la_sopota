@@ -377,7 +377,9 @@ export default function ExpressSucursales({ activeBranch, onSelectBranch, onBran
               </thead>
               <tbody>
                 {users.map(u => {
-                  const isUserAdmin = u.role === 'ADMIN';
+                  const roleStr = (u.role || '').toString().trim().toUpperCase();
+                  const emailStr = (u.email || '').toLowerCase().trim();
+                  const isUserAdmin = roleStr === 'ADMIN' || roleStr === 'SUPERADMIN' || roleStr === 'ADMINISTRADOR' || emailStr.includes('admin');
                   return (
                     <tr key={u.uid} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '0.75rem' }}>

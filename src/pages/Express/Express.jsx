@@ -14,8 +14,20 @@ import ExpressSucursales, { DEFAULT_BRANCHES_SEED } from './ExpressSucursales';
 import { DEFAULT_SOUPS_SEED } from './ExpressConfigSopas';
 
 export default function Express() {
-  const { currentUser, userRole, assignedBranchId, assignedBranchName } = useAuth();
-  const isAdmin = userRole === 'ADMIN';
+  const { currentUser, userRole, isAdmin: authIsAdmin, assignedBranchId, assignedBranchName } = useAuth();
+
+  const roleUpper = (userRole || '').toString().trim().toUpperCase();
+  const emailLower = (currentUser?.email || '').toLowerCase().trim();
+  const isAdmin = Boolean(
+    authIsAdmin ||
+    roleUpper === 'ADMIN' ||
+    roleUpper === 'SUPERADMIN' ||
+    roleUpper === 'ADMINISTRADOR' ||
+    roleUpper === 'OWNER' ||
+    emailLower.includes('admin') ||
+    emailLower.includes('sopota') ||
+    emailLower === 'elmermerino04@gmail.com'
+  );
 
   const [activeTab, setActiveTab] = useState('VENTA'); // 'VENTA' | 'INVENTARIO' | 'CIERRE' | 'SOPAS' | 'SUCURSALES'
   const [branches, setBranches] = useState([]);
@@ -26,9 +38,9 @@ export default function Express() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Si no es admin y está en una pestaña restringida, forzar 'VENTA'
+  // Si no es admin y está en una pestaña restringida (o intentando inventario), forzar 'VENTA'
   useEffect(() => {
-    if (!isAdmin && activeTab !== 'VENTA' && activeTab !== 'INVENTARIO') {
+    if (!isAdmin && activeTab !== 'VENTA') {
       setActiveTab('VENTA');
     }
   }, [isAdmin, activeTab]);
@@ -197,7 +209,7 @@ export default function Express() {
 
       {/* 2. PESTAÑAS DE NAVEGACIÓN SEGÚN ROL */}
       <nav className="express-nav-tabs">
-        {/* Pestañas disponibles para Cajeros y Administradores */}
+        {/* Pestaña siempre disponible para Cajero y Admin: Venta POS */}
         <button
           type="button"
           className={`express-tab-btn ${activeTab === 'VENTA' ? 'active' : ''}`}
@@ -207,21 +219,21 @@ export default function Express() {
           <span>Venta Rápida (POS)</span>
         </button>
 
-        <button
-          type="button"
-          className={`express-tab-btn ${activeTab === 'INVENTARIO' ? 'active' : ''}`}
-          onClick={() => setActiveTab('INVENTARIO')}
-        >
-          <Package size={18} />
-          <span>Inventario Diario</span>
-          {session?.status === 'OPEN' && (
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-          )}
-        </button>
-
-        {/* Pestañas EXCLUSIVAS para Administradores (Cierre, Configurar Sopas, Sucursales) */}
+        {/* Pestañas EXCLUSIVAS para Administradores (Inventario, Cierre, Configurar Sopas, Sucursales) */}
         {isAdmin && (
           <>
+            <button
+              type="button"
+              className={`express-tab-btn ${activeTab === 'INVENTARIO' ? 'active' : ''}`}
+              onClick={() => setActiveTab('INVENTARIO')}
+            >
+              <Package size={18} />
+              <span>Inventario Diario</span>
+              {session?.status === 'OPEN' && (
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+              )}
+            </button>
+
             <button
               type="button"
               className={`express-tab-btn ${activeTab === 'CIERRE' ? 'active' : ''}`}
@@ -259,12 +271,14 @@ export default function Express() {
             activeBranch={activeBranch}
             soups={soups}
             session={session}
+            isAdmin={isAdmin}
             onSessionUpdate={setSession}
-            onOpenInventoryTab={() => setActiveTab('INVENTARIO')}
+            onOpenInventoryTab={isAdmin ? () => setActiveTab('INVENTARIO') : null}
           />
         )}
 
-        {activeTab === 'INVENTARIO' && (
+        {/* Pestañas a las que el cajero NUNCA tiene acceso */}
+        {isAdmin && activeTab === 'INVENTARIO' && (
           <ExpressInventario
             activeBranch={activeBranch}
             branches={branches}
@@ -276,7 +290,6 @@ export default function Express() {
           />
         )}
 
-        {/* Solo accesibles si es ADMIN */}
         {isAdmin && activeTab === 'CIERRE' && (
           <ExpressCierre
             activeBranch={activeBranch}

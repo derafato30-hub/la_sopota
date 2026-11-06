@@ -8,8 +8,21 @@ import { useAuth } from '../../context/AuthContext';
 const QUICK_CASH_OPTIONS = [100, 200, 500, 1000];
 const BANKS = ['Banco Atlántida', 'BAC Credomatic', 'Ficohsa', 'Banpaís', 'Davivienda', 'Occidente'];
 
-export default function ExpressVenta({ activeBranch, soups, session, onSessionUpdate, onOpenInventoryTab }) {
-  const { currentUser } = useAuth();
+export default function ExpressVenta({ activeBranch, soups, session, isAdmin: propIsAdmin, onSessionUpdate, onOpenInventoryTab }) {
+  const { currentUser, userRole, isAdmin: authIsAdmin } = useAuth();
+  const roleUpper = (userRole || '').toString().trim().toUpperCase();
+  const emailLower = (currentUser?.email || '').toLowerCase().trim();
+  const isAdmin = Boolean(
+    propIsAdmin !== undefined ? propIsAdmin : (
+      authIsAdmin ||
+      roleUpper === 'ADMIN' ||
+      roleUpper === 'SUPERADMIN' ||
+      roleUpper === 'ADMINISTRADOR' ||
+      roleUpper === 'OWNER' ||
+      emailLower.includes('admin') ||
+      emailLower.includes('sopota')
+    )
+  );
   
   // Cart / Ticket state
   const [ticketItems, setTicketItems] = useState([]); // [{ soupId, name, price, qty, bgColor }]
@@ -33,7 +46,9 @@ export default function ExpressVenta({ activeBranch, soups, session, onSessionUp
     const availableStock = session?.currentStock?.[soup.id];
     if (session && session.status === 'OPEN' && availableStock !== undefined && availableStock <= 0) {
       toast.warning(`¡Atención! "${soup.name}" está marcada como agotada en el inventario.`, {
-        description: 'Puedes agregarla si la cocina trajo más, pero recuerda reabastecer en Inventario.'
+        description: isAdmin
+          ? 'Puedes agregarla si la cocina trajo más, pero recuerda reabastecer en Inventario.'
+          : 'Consulta con el administrador para reabastecer existencias.'
       });
     }
 
@@ -373,10 +388,14 @@ export default function ExpressVenta({ activeBranch, soups, session, onSessionUp
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f59e0b' }}>
               <AlertTriangle size={20} />
               <span style={{ fontSize: '0.9rem' }}>
-                El inventario inicial de hoy para <strong>{activeBranch?.name}</strong> no ha sido iniciado.
+                {isAdmin ? (
+                  <>El inventario inicial de hoy para <strong>{activeBranch?.name}</strong> no ha sido iniciado.</>
+                ) : (
+                  <>El inventario de hoy para <strong>{activeBranch?.name}</strong> aún no ha sido aperturado por el Administrador. Solicita a administración la apertura de existencias.</>
+                )}
               </span>
             </div>
-            {onOpenInventoryTab && (
+            {isAdmin && onOpenInventoryTab && (
               <button
                 type="button"
                 className="btn-primary"
