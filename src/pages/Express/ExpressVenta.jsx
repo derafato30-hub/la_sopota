@@ -465,7 +465,7 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
             </h2>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
             {/* BOTÓN TRASLADO DE SOPAS */}
             <button
               type="button"
@@ -475,9 +475,9 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
                 borderRadius: '25px',
                 fontSize: '0.9rem',
                 fontWeight: 800,
-                color: '#60a5fa',
-                border: '1.5px solid #3b82f6',
-                background: 'rgba(59, 130, 246, 0.12)',
+                color: '#38bdf8',
+                border: '1.5px solid #38bdf8',
+                background: 'rgba(56, 189, 248, 0.14)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.45rem',
@@ -488,7 +488,7 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
               title="Trasladar sopas hacia otra sucursal o devolver a Cocina Central (L. 0.00)"
             >
               <ArrowLeftRight size={17} />
-              <span>🔄 Traslado</span>
+              <span>🔄 Trasladar Sopas</span>
             </button>
             {/* BOTÓN REGISTRAR GASTO DE SUCURSAL */}
             <button
