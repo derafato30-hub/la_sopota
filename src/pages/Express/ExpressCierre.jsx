@@ -6,6 +6,7 @@ import { Calculator, CheckCircle2, AlertTriangle, Printer, History, DollarSign, 
 import { useAuth } from '../../context/AuthContext';
 import ExpressGastoModal from './ExpressGastoModal';
 import ExpressTrasladoModal from './ExpressTrasladoModal';
+import { clearBranchInventoryAndTests } from './expressResetService';
 
 export default function ExpressCierre({ activeBranch, branches = [], onSelectBranch, soups, session, onSessionUpdate }) {
   const { currentUser } = useAuth();
@@ -533,6 +534,38 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
           >
             <RefreshCw size={18} />
           </button>
+
+          {/* BOTÓN ROJO SOLO ADMIN: LIMPIAR INVENTARIO Y PRUEBAS */}
+          {!viewConsolidated && (
+            <button
+              type="button"
+              className="btn-danger"
+              style={{
+                padding: '0.45rem 0.85rem',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                color: '#ffffff',
+                border: '1.5px solid #ef4444',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)'
+              }}
+              onClick={async () => {
+                const ok = await clearBranchInventoryAndTests(activeBranch, onSessionUpdate);
+                if (ok) {
+                  fetchTodayBranchData();
+                }
+              }}
+              title="Reiniciar y borrar inventario y pruebas de hoy para esta sucursal (Exclusivo Administrador)"
+            >
+              <Trash2 size={16} />
+              <span>Limpiar inventario de esta sucursal</span>
+            </button>
+          )}
         </div>
       </div>
 

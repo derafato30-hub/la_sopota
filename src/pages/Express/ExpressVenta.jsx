@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Zap, ShoppingBag, Plus, Minus, Banknote, CreditCard, X, AlertTriangle, Coffee, UtensilsCrossed, Check, Receipt, ArrowLeftRight } from 'lucide-react';
+import { Zap, ShoppingBag, Plus, Minus, Banknote, CreditCard, X, AlertTriangle, Coffee, UtensilsCrossed, Check, Receipt, ArrowLeftRight, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isExtraItem } from './ExpressConfigSopas';
 import ExpressGastoModal from './ExpressGastoModal';
 import ExpressTrasladoModal from './ExpressTrasladoModal';
+import { clearBranchInventoryAndTests } from './expressResetService';
 
 const BANKS = ['Banco Atlántida', 'BAC Credomatic', 'Ficohsa', 'Banpaís', 'Davivienda', 'Occidente'];
 
@@ -536,6 +537,39 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
                     {extrasInTicketCount} en ticket
                   </span>
                 )}
+              </button>
+            )}
+
+            {/* BOTÓN ROJO SOLO ADMIN: LIMPIAR INVENTARIO Y PRUEBAS */}
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn-danger"
+                style={{
+                  padding: '0.5rem 0.85rem',
+                  borderRadius: '25px',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  color: '#ffffff',
+                  border: '1.5px solid #ef4444',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)'
+                }}
+                onClick={async () => {
+                  const ok = await clearBranchInventoryAndTests(activeBranch, onSessionUpdate);
+                  if (ok) {
+                    setTicketItems([]);
+                    setCashReceived('');
+                  }
+                }}
+                title="Reiniciar y borrar inventario y pruebas de hoy para esta sucursal (Exclusivo Administrador)"
+              >
+                <Trash2 size={16} />
+                <span>Limpiar inventario de esta sucursal</span>
               </button>
             )}
           </div>

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store, UtensilsCrossed, Coffee, ArrowLeftRight } from 'lucide-react';
+import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store, UtensilsCrossed, Coffee, ArrowLeftRight, Trash2 } from 'lucide-react';
 import ExpressTrasladoModal from './ExpressTrasladoModal';
+import { clearBranchInventoryAndTests } from './expressResetService';
 import { useAuth } from '../../context/AuthContext';
 import { isExtraItem } from './ExpressConfigSopas';
 
@@ -155,25 +156,56 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
           </p>
         </div>
 
-        {/* SELECTOR RÁPIDO DE SUCURSAL PARA ADMINISTRADOR */}
-        {isAdmin && branches.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#1e293b', border: '1.5px solid #f97316', padding: '0.35rem 0.85rem', borderRadius: '20px' }}>
-            <Store size={16} color="#f97316" />
-            <select
-              className="input-field"
-              value={activeBranch?.id || ''}
-              onChange={(e) => {
-                const b = branches.find(item => item.id === e.target.value);
-                if (b && onSelectBranch) onSelectBranch(b);
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+          {/* BOTÓN ROJO SOLO ADMIN: LIMPIAR INVENTARIO Y PRUEBAS */}
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn-danger"
+              style={{
+                padding: '0.45rem 0.85rem',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                color: '#ffffff',
+                border: '1.5px solid #ef4444',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)'
               }}
-              style={{ border: 'none', background: 'transparent', color: '#ffffff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
+              onClick={async () => {
+                await clearBranchInventoryAndTests(activeBranch, onSessionUpdate);
+              }}
+              title="Reiniciar y borrar inventario y pruebas de hoy para esta sucursal (Exclusivo Administrador)"
             >
-              {branches.map(b => (
-                <option key={b.id} value={b.id} style={{ background: '#1e293b' }}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+              <Trash2 size={16} />
+              <span>Limpiar inventario de esta sucursal</span>
+            </button>
+          )}
+
+          {/* SELECTOR RÁPIDO DE SUCURSAL PARA ADMINISTRADOR */}
+          {isAdmin && branches.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#1e293b', border: '1.5px solid #f97316', padding: '0.35rem 0.85rem', borderRadius: '20px' }}>
+              <Store size={16} color="#f97316" />
+              <select
+                className="input-field"
+                value={activeBranch?.id || ''}
+                onChange={(e) => {
+                  const b = branches.find(item => item.id === e.target.value);
+                  if (b && onSelectBranch) onSelectBranch(b);
+                }}
+                style={{ border: 'none', background: 'transparent', color: '#ffffff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', outline: 'none' }}
+              >
+                {branches.map(b => (
+                  <option key={b.id} value={b.id} style={{ background: '#1e293b' }}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* CASO 1: NO HAY SESIÓN ABIERTA -> FORMULARIO DE APERTURA */}
