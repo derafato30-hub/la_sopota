@@ -284,56 +284,6 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
       </div>
 
       <div className="express-ticket-footer">
-        {/* BOTONES DE GASTO Y EXTRAS EN TICKET */}
-        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{
-              flex: 1,
-              padding: '0.45rem',
-              borderRadius: '8px',
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              color: '#f43f5e',
-              border: '1.2px solid #f43f5e',
-              background: 'rgba(244, 63, 94, 0.12)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px'
-            }}
-            onClick={() => setExpenseModalOpen(true)}
-            title="Registrar gasto de caja"
-          >
-            <Receipt size={14} /> Gasto de Caja
-          </button>
-          {extraItems.length > 0 && (
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{
-                flex: 1,
-                padding: '0.45rem',
-                borderRadius: '8px',
-                fontSize: '0.8rem',
-                fontWeight: 800,
-                color: '#38bdf8',
-                border: '1.2px solid #38bdf8',
-                background: 'rgba(56, 189, 248, 0.12)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px'
-              }}
-              onClick={() => setExtrasDrawerOpen(true)}
-              title="Abrir menú de bebidas y extras"
-            >
-              <Coffee size={14} /> Extras y Frescos {extrasInTicketCount > 0 ? `(${extrasInTicketCount})` : ''}
-            </button>
-          )}
-        </div>
-
         {/* TOTAL */}
         <div className="express-ticket-total-row">
           <span className="express-ticket-total-label">TOTAL ({totalItemsCount}):</span>
@@ -515,31 +465,79 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
             </h2>
           </div>
 
-          <div>
-            {/* BOTÓN TRASLADO DE SOPAS (Único en la barra superior) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {/* BOTÓN TRASLADO DE SOPAS */}
             <button
               type="button"
               className="btn-secondary"
               style={{
-                padding: '0.55rem 1rem',
+                padding: '0.5rem 0.85rem',
                 borderRadius: '25px',
-                fontSize: '0.9rem',
+                fontSize: '0.85rem',
                 fontWeight: 800,
                 color: '#38bdf8',
                 border: '1.5px solid #38bdf8',
                 background: 'rgba(56, 189, 248, 0.14)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.45rem',
+                gap: '0.4rem',
                 cursor: 'pointer',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
               }}
               onClick={() => setTrasladoModalOpen(true)}
               title="Trasladar sopas hacia otra sucursal o devolver a Cocina Central (L. 0.00)"
             >
-              <ArrowLeftRight size={17} />
+              <ArrowLeftRight size={16} />
               <span>Trasladar Sopas</span>
             </button>
+
+            {/* BOTÓN REGISTRAR GASTO DE SUCURSAL */}
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{
+                padding: '0.5rem 0.85rem',
+                borderRadius: '25px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                color: '#f43f5e',
+                border: '1.5px solid #f43f5e',
+                background: 'rgba(244, 63, 94, 0.12)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+              }}
+              onClick={() => setExpenseModalOpen(true)}
+              title="Registrar salida de dinero o gasto operativo de esta sucursal"
+            >
+              <Receipt size={16} />
+              <span>Gasto de Caja</span>
+            </button>
+
+            {/* BOTÓN DESPLEGABLE DE EXTRAS Y FRESCOS */}
+            {extraItems.length > 0 && (
+              <button
+                type="button"
+                className={`express-open-extras-btn ${extrasInTicketCount > 0 ? 'has-items' : ''}`}
+                style={{
+                  padding: '0.5rem 0.85rem',
+                  borderRadius: '25px',
+                  fontSize: '0.85rem'
+                }}
+                onClick={() => setExtrasDrawerOpen(true)}
+                title="Abrir menú de bebidas, extras y complementos"
+              >
+                <Coffee size={16} />
+                <span>Extras y Frescos ({extraItems.length})</span>
+                {extrasInTicketCount > 0 && (
+                  <span className="express-extras-ticket-pill">
+                    {extrasInTicketCount} en ticket
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -726,45 +724,6 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
             L. {totalAmount.toFixed(2)}
           </span>
         </div>
-
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{
-            padding: '0.65rem 0.75rem',
-            borderRadius: '8px',
-            fontSize: '0.82rem',
-            fontWeight: 800,
-            background: '#1e293b',
-            color: '#f43f5e',
-            border: '1.5px solid #f43f5e'
-          }}
-          onClick={() => setExpenseModalOpen(true)}
-          title="Registrar gasto"
-        >
-          💸 Gasto
-        </button>
-
-
-
-        {extraItems.length > 0 && (
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{
-              padding: '0.65rem 0.8rem',
-              borderRadius: '8px',
-              fontSize: '0.82rem',
-              fontWeight: 800,
-              background: '#1e293b',
-              color: '#38bdf8',
-              border: '1.5px solid #38bdf8'
-            }}
-            onClick={() => setExtrasDrawerOpen(true)}
-          >
-            🥤 Extras {extrasInTicketCount > 0 ? `(${extrasInTicketCount})` : ''}
-          </button>
-        )}
 
         <button
           type="button"
