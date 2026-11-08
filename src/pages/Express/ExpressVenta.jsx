@@ -488,7 +488,7 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
               title="Trasladar sopas hacia otra sucursal o devolver a Cocina Central (L. 0.00)"
             >
               <ArrowLeftRight size={17} />
-              <span>🔄 Trasladar Sopas</span>
+              <span>Trasladar Sopas</span>
             </button>
             {/* BOTÓN REGISTRAR GASTO DE SUCURSAL */}
             <button
@@ -512,7 +512,7 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
               title="Registrar salida de dinero o gasto operativo de esta sucursal"
             >
               <Receipt size={17} />
-              <span>💸 Gasto de Caja</span>
+              <span>Gasto de Caja</span>
             </button>
 
             {/* BOTÓN DESPLEGABLE DE EXTRAS Y FRESCOS */}
@@ -524,7 +524,7 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
                 title="Abrir menú de bebidas, extras y complementos"
               >
                 <Coffee size={18} />
-                <span>🥤 Extras y Frescos ({extraItems.length})</span>
+                <span>Extras y Frescos ({extraItems.length})</span>
                 {extrasInTicketCount > 0 && (
                   <span className="express-extras-ticket-pill">
                     {extrasInTicketCount} en ticket
@@ -737,23 +737,7 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
           💸 Gasto
         </button>
 
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{
-            padding: '0.65rem 0.75rem',
-            borderRadius: '8px',
-            fontSize: '0.82rem',
-            fontWeight: 800,
-            background: '#1e293b',
-            color: '#38bdf8',
-            border: '1.5px solid #38bdf8'
-          }}
-          onClick={() => setTrasladoModalOpen(true)}
-          title="Traslado de inventario"
-        >
-          🔄 Traslado
-        </button>
+
 
         {extraItems.length > 0 && (
           <button
