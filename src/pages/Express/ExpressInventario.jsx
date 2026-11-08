@@ -324,51 +324,71 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
           <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem', overflowX: 'auto' }}>
             {/* PESTAÑAS DE FILTRO */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.35rem 0.8rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    background: invFilter === 'ALL' ? '#f97316' : '#1e293b',
+                    color: invFilter === 'ALL' ? '#ffffff' : '#94a3b8',
+                    border: '1px solid #334155'
+                  }}
+                  onClick={() => setInvFilter('ALL')}
+                >
+                  Todos ({soups.length})
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.35rem 0.8rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    background: invFilter === 'SOPAS' ? '#f97316' : '#1e293b',
+                    color: invFilter === 'SOPAS' ? '#ffffff' : '#94a3b8',
+                    border: '1px solid #334155'
+                  }}
+                  onClick={() => setInvFilter('SOPAS')}
+                >
+                  🍲 Solo Sopas ({mainSoups.length})
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.35rem 0.8rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    background: invFilter === 'EXTRAS' ? '#38bdf8' : '#1e293b',
+                    color: invFilter === 'EXTRAS' ? '#ffffff' : '#94a3b8',
+                    border: '1px solid #334155'
+                  }}
+                  onClick={() => setInvFilter('EXTRAS')}
+                >
+                  🥤 Solo Extras/Frescos ({extraItems.length})
+                </button>
+              </div>
+
               <button
                 type="button"
                 className="btn-secondary"
                 style={{
-                  padding: '0.35rem 0.8rem',
+                  padding: '0.4rem 0.85rem',
                   fontSize: '0.82rem',
-                  fontWeight: 700,
-                  background: invFilter === 'ALL' ? '#f97316' : '#1e293b',
-                  color: invFilter === 'ALL' ? '#ffffff' : '#94a3b8',
-                  border: '1px solid #334155'
+                  fontWeight: 800,
+                  color: '#38bdf8',
+                  border: '1.5px solid #38bdf8',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
                 }}
-                onClick={() => setInvFilter('ALL')}
+                onClick={() => setTrasladoModalOpen(true)}
               >
-                Todos ({soups.length})
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{
-                  padding: '0.35rem 0.8rem',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  background: invFilter === 'SOPAS' ? '#f97316' : '#1e293b',
-                  color: invFilter === 'SOPAS' ? '#ffffff' : '#94a3b8',
-                  border: '1px solid #334155'
-                }}
-                onClick={() => setInvFilter('SOPAS')}
-              >
-                🍲 Solo Sopas ({mainSoups.length})
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{
-                  padding: '0.35rem 0.8rem',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  background: invFilter === 'EXTRAS' ? '#38bdf8' : '#1e293b',
-                  color: invFilter === 'EXTRAS' ? '#ffffff' : '#94a3b8',
-                  border: '1px solid #334155'
-                }}
-                onClick={() => setInvFilter('EXTRAS')}
-              >
-                🥤 Solo Extras/Frescos ({extraItems.length})
+                <ArrowLeftRight size={15} /> Traslado de Sopas
               </button>
             </div>
 
@@ -462,6 +482,17 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
           </div>
         </div>
       )}
+
+      {/* MODAL TRASLADO DE INVENTARIO */}
+      <ExpressTrasladoModal
+        isOpen={trasladoModalOpen}
+        onClose={() => setTrasladoModalOpen(false)}
+        activeBranch={activeBranch}
+        branches={branches}
+        soups={soups}
+        session={session}
+        onTransferCompleted={() => {}}
+      />
 
       {/* MODAL REABASTECER PRODUCTO */}
       {restockSoup && (
