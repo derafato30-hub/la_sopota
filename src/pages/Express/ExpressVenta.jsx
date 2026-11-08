@@ -694,6 +694,17 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
         activeBranch={activeBranch}
       />
 
+      {/* MODAL TRASLADO DE SOPAS */}
+      <ExpressTrasladoModal
+        isOpen={trasladoModalOpen}
+        onClose={() => setTrasladoModalOpen(false)}
+        activeBranch={activeBranch}
+        branches={branches}
+        soups={soups}
+        session={session}
+        onTransferCompleted={() => {}}
+      />
+
       {/* 5. BARRA FLOTANTE MÓVIL (Sticky Bottom en Teléfonos) */}
       <div className="express-mobile-bar">
         <div
@@ -724,6 +735,24 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
           title="Registrar gasto"
         >
           💸 Gasto
+        </button>
+
+        <button
+          type="button"
+          className="btn-secondary"
+          style={{
+            padding: '0.65rem 0.75rem',
+            borderRadius: '8px',
+            fontSize: '0.82rem',
+            fontWeight: 800,
+            background: '#1e293b',
+            color: '#38bdf8',
+            border: '1.5px solid #38bdf8'
+          }}
+          onClick={() => setTrasladoModalOpen(true)}
+          title="Traslado de inventario"
+        >
+          🔄 Traslado
         </button>
 
         {extraItems.length > 0 && (

@@ -969,6 +969,20 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
           else fetchTodayBranchData();
         }}
       />
+
+      {/* MODAL TRASLADO DE INVENTARIO */}
+      <ExpressTrasladoModal
+        isOpen={trasladoModalOpen}
+        onClose={() => setTrasladoModalOpen(false)}
+        activeBranch={activeBranch}
+        branches={branches}
+        soups={soups}
+        session={session}
+        onTransferCompleted={() => {
+          if (viewConsolidated) fetchAllBranchesSalesToday();
+          else fetchTodayBranchData();
+        }}
+      />
     </div>
   );
 }
