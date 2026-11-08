@@ -170,6 +170,9 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
   const hasEnteredCash = !isNaN(numDeclaredCash);
   const difference = hasEnteredCash ? (numDeclaredCash - expectedCashInDrawer) : 0;
 
+  // Modalidad sin inventario exacto / servicio continuo
+  const isUnlimited = session?.unlimitedInventory || session?.inventoryMode === 'UNLIMITED';
+
   // CÁLCULO DE INVENTARIO VENDIDO
   const soupSalesSummary = soups.map(s => {
     let soldQty = 0;
@@ -178,8 +181,8 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
         if (it.soupId === s.id) soldQty += (it.qty || 0);
       });
     });
-    const initial = session?.initialStock?.[s.id] || 0;
-    const remaining = Math.max(0, initial - soldQty);
+    const initial = isUnlimited ? 'Continuo' : (session?.initialStock?.[s.id] || 0);
+    const remaining = isUnlimited ? 'En Cocina' : Math.max(0, (typeof initial === 'number' ? initial : 0) - soldQty);
     return {
       soupId: s.id,
       name: s.name,
@@ -187,7 +190,8 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
       price: s.price,
       initial,
       soldQty,
-      remaining
+      remaining,
+      isUnlimited
     };
   });
 
@@ -231,6 +235,8 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
         difference: difference,
         totalSoupsSold: totalSoupsSold,
         inventorySummary: soupSalesSummary,
+        inventoryMode: session?.inventoryMode || (isUnlimited ? 'UNLIMITED' : 'EXACT'),
+        unlimitedInventory: isUnlimited,
         notes: closureNotes.trim()
       };
 
@@ -945,9 +951,16 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
 
           {/* TARJETA 2: INVENTARIO DE PRODUCTOS Y DISPONIBILIDAD */}
           <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem' }}>
-            <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f97316' }}>
-              <PackageCheck size={20} /> Balance de Inventario: {activeBranch.name}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f97316' }}>
+                <PackageCheck size={20} /> Balance de Inventario: {activeBranch.name}
+              </h3>
+              {isUnlimited && (
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                  ♾️ Modalidad Servicio Continuo
+                </span>
+              )}
+            </div>
 
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -966,23 +979,27 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
                         <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: item.bgColor || '#E65100', flexShrink: 0 }} />
                         <span style={{ fontWeight: 'bold', fontSize: '0.92rem' }}>{item.name}</span>
                       </td>
-                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>{item.initial}</td>
-                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 'bold', color: '#f97316' }}>{item.soldQty}</td>
-                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 'bold', color: item.remaining === 0 ? '#ef4444' : '#22c55e' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: isUnlimited ? '#38bdf8' : 'inherit' }}>
+                        {item.initial}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 'bold', color: '#f97316' }}>
+                        {item.soldQty}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 'bold', color: isUnlimited ? '#38bdf8' : (item.remaining === 0 ? '#ef4444' : '#22c55e') }}>
                         {item.remaining}
                       </td>
                     </tr>
                   ))}
                   <tr style={{ background: 'var(--surface-hover)', fontWeight: 'bold' }}>
                     <td style={{ padding: '0.75rem 0.5rem' }}>TOTALES:</td>
-                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                      {soupSalesSummary.reduce((acc, it) => acc + it.initial, 0)}
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: isUnlimited ? '#38bdf8' : 'inherit' }}>
+                      {isUnlimited ? 'Continuo' : soupSalesSummary.reduce((acc, it) => acc + (typeof it.initial === 'number' ? it.initial : 0), 0)}
                     </td>
                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: '#f97316' }}>
                       {totalSoupsSold}
                     </td>
-                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                      {soupSalesSummary.reduce((acc, it) => acc + it.remaining, 0)}
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: isUnlimited ? '#38bdf8' : 'inherit' }}>
+                      {isUnlimited ? 'En Cocina' : soupSalesSummary.reduce((acc, it) => acc + (typeof it.remaining === 'number' ? it.remaining : 0), 0)}
                     </td>
                   </tr>
                 </tbody>

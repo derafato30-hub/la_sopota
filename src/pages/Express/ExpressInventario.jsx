@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store, UtensilsCrossed, Coffee, ArrowLeftRight, Trash2 } from 'lucide-react';
+import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store, UtensilsCrossed, Coffee, ArrowLeftRight, Trash2, Sparkles, Infinity as InfinityIcon } from 'lucide-react';
 import ExpressTrasladoModal from './ExpressTrasladoModal';
 import { clearBranchInventoryAndTests } from './expressResetService';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,7 @@ import { isExtraItem } from './ExpressConfigSopas';
 export default function ExpressInventario({ activeBranch, branches = [], onSelectBranch, isAdmin = false, soups, session, onSessionUpdate }) {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [inventoryMode, setInventoryMode] = useState('EXACT'); // 'EXACT' | 'UNLIMITED'
   const [initialStocks, setInitialStocks] = useState({});
   const [initialCash, setInitialCash] = useState('0');
   const [invFilter, setInvFilter] = useState('ALL'); // 'ALL' | 'SOPAS' | 'EXTRAS'
@@ -49,10 +50,13 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
 
     setLoading(true);
     try {
+      const isUnlimited = inventoryMode === 'UNLIMITED';
       const stockMap = {};
-      soups.forEach(s => {
-        stockMap[s.id] = initialStocks[s.id] || 0;
-      });
+      if (!isUnlimited) {
+        soups.forEach(s => {
+          stockMap[s.id] = initialStocks[s.id] || 0;
+        });
+      }
 
       const sessionData = {
         id: sessionId,
@@ -62,8 +66,12 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
         status: 'OPEN',
         openedAt: serverTimestamp(),
         openedBy: currentUser?.email || 'admin',
-        initialStock: stockMap,
-        currentStock: stockMap,
+        inventoryMode: inventoryMode,
+        unlimitedInventory: isUnlimited,
+        initialStock: isUnlimited ? {} : stockMap,
+        currentStock: isUnlimited ? {} : stockMap,
+        transferredIn: {},
+        transferredOut: {},
         soldCount: {},
         totalSales: 0,
         totalCash: 0,
@@ -72,7 +80,11 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
       };
 
       await setDoc(doc(db, 'express_sessions', sessionId), sessionData);
-      toast.success(`¡Día e inventario aperturado para ${activeBranch.name}!`);
+      toast.success(
+        isUnlimited
+          ? `¡Día aperturado con Servicio Continuo (Sin límite de inventario) para ${activeBranch.name}!`
+          : `¡Día e inventario aperturado para ${activeBranch.name}!`
+      );
       if (onSessionUpdate) onSessionUpdate(sessionData);
     } catch (err) {
       console.error('Error al aperturar sesión:', err);
@@ -216,88 +228,185 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
             <div>
               <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-primary)' }}>Apertura de Inventario del Día</h3>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Ingresa cuántas unidades de cada sopa o extra tienes listas para vender hoy en esta sucursal.
+                Configura la modalidad de inventario e inicia las operaciones de hoy para <strong>{activeBranch.name}</strong>.
               </span>
             </div>
           </div>
 
-          <form onSubmit={handleOpenDay} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* SECCIÓN SOPAS PRINCIPALES */}
-            <div>
-              <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--primary-color)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <UtensilsCrossed size={18} /> Sopas Principales ({mainSoups.length})
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
-                {mainSoups.map(soup => (
-                  <div
-                    key={soup.id}
-                    style={{
-                      backgroundColor: 'var(--bg-color)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      padding: '0.85rem 1rem',
-                      borderLeft: `5px solid ${soup.bgColor || '#E65100'}`
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{soup.name}</strong>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>L. {Number(soup.price).toFixed(2)}</span>
-                    </div>
+          {/* SELECTOR DE MODALIDAD */}
+          <div style={{ marginBottom: '0.5rem' }}>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 700, display: 'block', marginBottom: '0.65rem' }}>
+              SELECCIONA LA MODALIDAD DE APERTURA:
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.85rem' }}>
+              {/* OPCIÓN 1: EXACTO */}
+              <div
+                onClick={() => setInventoryMode('EXACT')}
+                style={{
+                  border: inventoryMode === 'EXACT' ? '2px solid #f59e0b' : '1px solid var(--border-color)',
+                  background: inventoryMode === 'EXACT' ? 'rgba(245, 158, 11, 0.12)' : 'var(--bg-color)',
+                  borderRadius: '12px',
+                  padding: '1rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>🎯</span>
+                  <strong style={{ fontSize: '1rem', color: inventoryMode === 'EXACT' ? '#f59e0b' : 'var(--text-primary)' }}>
+                    Inventario Exacto por Unidades
+                  </strong>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Para sucursales con porciones contadas. Lleva control de stock disponible y alerta cuando un producto se agota.
+                </p>
+                {inventoryMode === 'EXACT' && (
+                  <span style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '0.72rem', fontWeight: 800, background: '#f59e0b', color: '#000', padding: '2px 8px', borderRadius: '10px' }}>
+                    ACTIVO
+                  </span>
+                )}
+              </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Unidades:</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="input-field"
-                        style={{ width: '100%', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}
-                        value={initialStocks[soup.id] ?? 0}
-                        onChange={e => handleStockInputChange(soup.id, e.target.value)}
-                      />
-                    </div>
-                  </div>
-                ))}
+              {/* OPCIÓN 2: CONTINUO / SIN LÍMITE */}
+              <div
+                onClick={() => setInventoryMode('UNLIMITED')}
+                style={{
+                  border: inventoryMode === 'UNLIMITED' ? '2px solid #38bdf8' : '1px solid var(--border-color)',
+                  background: inventoryMode === 'UNLIMITED' ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-color)',
+                  borderRadius: '12px',
+                  padding: '1rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>♾️</span>
+                  <strong style={{ fontSize: '1rem', color: inventoryMode === 'UNLIMITED' ? '#38bdf8' : 'var(--text-primary)' }}>
+                    Sin Inventario Exacto (Servicio Continuo)
+                  </strong>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Recomendado para el <strong>Punto Principal / Cocina</strong>. Las sopas se sirven libremente sin límite de porciones y el POS registra todas las ventas.
+                </p>
+                {inventoryMode === 'UNLIMITED' && (
+                  <span style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '0.72rem', fontWeight: 800, background: '#38bdf8', color: '#000', padding: '2px 8px', borderRadius: '10px' }}>
+                    ACTIVO
+                  </span>
+                )}
               </div>
             </div>
+          </div>
 
-            {/* SECCIÓN EXTRAS Y BEBIDAS */}
-            {extraItems.length > 0 && (
-              <div>
-                <h4 style={{ margin: '0 0 0.75rem 0', color: '#38bdf8', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Coffee size={18} /> Extras, Frescos y Complementos ({extraItems.length})
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
-                  {extraItems.map(extra => (
-                    <div
-                      key={extra.id}
-                      style={{
-                        backgroundColor: 'var(--bg-color)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '10px',
-                        padding: '0.85rem 1rem',
-                        borderLeft: `5px solid ${extra.bgColor || '#38bdf8'}`
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                        <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{extra.name}</strong>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>L. {Number(extra.price).toFixed(2)}</span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Unidades:</label>
-                        <input
-                          type="number"
-                          min="0"
-                          className="input-field"
-                          style={{ width: '100%', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}
-                          value={initialStocks[extra.id] ?? 0}
-                          onChange={e => handleStockInputChange(extra.id, e.target.value)}
-                        />
-                      </div>
-                    </div>
+          <form onSubmit={handleOpenDay} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* SI SELECCIONÓ MODO CONTINUO / ILIMITADO */}
+            {inventoryMode === 'UNLIMITED' ? (
+              <div style={{
+                background: 'rgba(56, 189, 248, 0.08)',
+                border: '1.5px dashed rgba(56, 189, 248, 0.4)',
+                padding: '1.25rem',
+                borderRadius: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#38bdf8' }}>
+                  <Sparkles size={20} />
+                  <strong style={{ fontSize: '0.98rem' }}>Modalidad Servicio Continuo para {activeBranch.name}</strong>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  No requieres ingresar cantidades previas de porciones para cada sopa ni extra. El Punto de Venta operará de forma continua sin bloqueos de stock agotado. El Cierre detallará con exactitud cuántos platos se vendieron durante el día y el total de ingresos recaudados.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  {mainSoups.map(s => (
+                    <span key={s.id} style={{ fontSize: '0.78rem', background: '#1e293b', border: '1px solid #334155', padding: '3px 8px', borderRadius: '6px', color: '#94a3b8' }}>
+                      🍲 {s.name}
+                    </span>
                   ))}
                 </div>
               </div>
+            ) : (
+              /* SI SELECCIONÓ INVENTARIO EXACTO POR UNIDADES */
+              <>
+                {/* SECCIÓN SOPAS PRINCIPALES */}
+                <div>
+                  <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--primary-color)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <UtensilsCrossed size={18} /> Sopas Principales ({mainSoups.length})
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+                    {mainSoups.map(soup => (
+                      <div
+                        key={soup.id}
+                        style={{
+                          backgroundColor: 'var(--bg-color)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          padding: '0.85rem 1rem',
+                          borderLeft: `5px solid ${soup.bgColor || '#E65100'}`
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{soup.name}</strong>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>L. {Number(soup.price).toFixed(2)}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Unidades:</label>
+                          <input
+                            type="number"
+                            min="0"
+                            className="input-field"
+                            style={{ width: '100%', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}
+                            value={initialStocks[soup.id] ?? 0}
+                            onChange={e => handleStockInputChange(soup.id, e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SECCIÓN EXTRAS Y BEBIDAS */}
+                {extraItems.length > 0 && (
+                  <div>
+                    <h4 style={{ margin: '0 0 0.75rem 0', color: '#38bdf8', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Coffee size={18} /> Extras, Frescos y Complementos ({extraItems.length})
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+                      {extraItems.map(extra => (
+                        <div
+                          key={extra.id}
+                          style={{
+                            backgroundColor: 'var(--bg-color)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '10px',
+                            padding: '0.85rem 1rem',
+                            borderLeft: `5px solid ${extra.bgColor || '#38bdf8'}`
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{extra.name}</strong>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>L. {Number(extra.price).toFixed(2)}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Unidades:</label>
+                            <input
+                              type="number"
+                              min="0"
+                              className="input-field"
+                              style={{ width: '100%', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center' }}
+                              value={initialStocks[extra.id] ?? 0}
+                              onChange={e => handleStockInputChange(extra.id, e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div style={{ background: 'var(--bg-color)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', marginTop: '0.5rem' }}>
@@ -330,8 +439,10 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: '#1a1a1a',
+                background: inventoryMode === 'UNLIMITED'
+                  ? 'linear-gradient(135deg, #0284c7, #0369a1)'
+                  : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: inventoryMode === 'UNLIMITED' ? '#ffffff' : '#1a1a1a',
                 border: 'none',
                 borderRadius: '12px',
                 cursor: 'pointer'
@@ -339,19 +450,35 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
               disabled={loading}
             >
               <Play size={22} />
-              {loading ? 'Aperturando...' : 'Abrir Día e Iniciar Inventario'}
+              {loading
+                ? 'Aperturando...'
+                : inventoryMode === 'UNLIMITED'
+                ? 'Abrir Día con Servicio Continuo'
+                : 'Abrir Día e Iniciar Inventario Exacto'}
             </button>
           </form>
         </div>
       ) : (
         /* CASO 2: SESIÓN ABIERTA -> MONITOREO Y REABASTECIMIENTO EN VIVO */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <CheckCircle2 color="#22c55e" size={24} />
-            <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-              <strong>Inventario en tiempo real sincronizado.</strong> Con cada venta realizada en el POS de esta sucursal, el stock disponible se descuenta automáticamente.
+          {session?.unlimitedInventory || session?.inventoryMode === 'UNLIMITED' ? (
+            <div style={{ background: 'rgba(56, 189, 248, 0.12)', border: '1.5px solid #38bdf8', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ fontSize: '1.6rem' }}>♾️</div>
+              <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                <strong style={{ color: '#38bdf8', fontSize: '1.02rem', display: 'block', marginBottom: '2px' }}>
+                  MODO: SERVICIO CONTINUO (SIN INVENTARIO EXACTO)
+                </strong>
+                Esta sucursal opera sin límite previo de porciones (Punto Principal / Cocina). Las ventas se registran libremente y las unidades vendidas se contabilizan en tiempo real para el cuadre final.
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <CheckCircle2 color="#22c55e" size={24} />
+              <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                <strong>Inventario en tiempo real sincronizado.</strong> Con cada venta realizada en el POS de esta sucursal, el stock disponible se descuenta automáticamente.
+              </div>
+            </div>
+          )}
 
           <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem', overflowX: 'auto' }}>
             {/* PESTAÑAS DE FILTRO */}
@@ -436,11 +563,12 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
               </thead>
               <tbody>
                 {filteredInventorySoups.map(s => {
-                  const initial = session.initialStock?.[s.id] || 0;
-                  const current = session.currentStock?.[s.id] ?? initial;
-                  const sold = initial - current > 0 ? initial - current : (session.soldCount?.[s.id] || 0);
-                  const isLow = current <= 5;
-                  const isZero = current <= 0;
+                  const isUnlimited = session?.unlimitedInventory || session?.inventoryMode === 'UNLIMITED';
+                  const initial = isUnlimited ? 'Continuo' : (session.initialStock?.[s.id] || 0);
+                  const current = isUnlimited ? 'Ilimitado' : (session.currentStock?.[s.id] ?? initial);
+                  const sold = session.soldCount?.[s.id] || (typeof initial === 'number' && typeof current === 'number' && initial - current > 0 ? initial - current : 0);
+                  const isLow = !isUnlimited && current <= 5;
+                  const isZero = !isUnlimited && current <= 0;
                   const isExtra = isExtraItem(s);
 
                   return (
@@ -472,26 +600,43 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>L. {Number(s.price).toFixed(2)}</div>
                         </div>
                       </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', fontSize: '1.05rem' }}>
-                        {initial}
+                      <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', fontSize: '1.05rem', color: isUnlimited ? '#38bdf8' : 'inherit' }}>
+                        {isUnlimited ? '♾️ Continuo' : initial}
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center', color: '#f97316', fontWeight: 'bold', fontSize: '1.05rem' }}>
                         {sold}
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '4px 10px',
-                            borderRadius: '20px',
-                            fontWeight: 800,
-                            fontSize: '0.95rem',
-                            backgroundColor: isZero ? 'rgba(239, 68, 68, 0.2)' : isLow ? 'rgba(245, 158, 11, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                            color: isZero ? '#ef4444' : isLow ? '#f59e0b' : '#22c55e'
-                          }}
-                        >
-                          {current} {isZero ? '(Agotado)' : ''}
-                        </span>
+                        {isUnlimited ? (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 12px',
+                              borderRadius: '20px',
+                              fontWeight: 800,
+                              fontSize: '0.92rem',
+                              backgroundColor: 'rgba(56, 189, 248, 0.18)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.35)'
+                            }}
+                          >
+                            ♾️ En Cocina (Continuo)
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '20px',
+                              fontWeight: 800,
+                              fontSize: '0.95rem',
+                              backgroundColor: isZero ? 'rgba(239, 68, 68, 0.2)' : isLow ? 'rgba(245, 158, 11, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                              color: isZero ? '#ef4444' : isLow ? '#f59e0b' : '#22c55e'
+                            }}
+                          >
+                            {current} {isZero ? '(Agotado)' : ''}
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                         <button

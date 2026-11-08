@@ -55,11 +55,14 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
   const numCashReceived = parseFloat(cashReceived) || 0;
   const changeDue = Math.max(0, numCashReceived - totalAmount);
 
+  // Modalidad sin inventario exacto / servicio continuo
+  const isUnlimited = session?.unlimitedInventory || session?.inventoryMode === 'UNLIMITED';
+
   // Agregar sopa o extra al ticket con 1 clic en la tarjeta
   const handleAddSoup = (soup) => {
-    // Verificar stock si hay sesión abierta
+    // Verificar stock si hay sesión abierta con inventario exacto
     const availableStock = session?.currentStock?.[soup.id];
-    if (session && session.status === 'OPEN' && availableStock !== undefined && availableStock <= 0) {
+    if (!isUnlimited && session && session.status === 'OPEN' && availableStock !== undefined && availableStock <= 0) {
       toast.warning(`¡Atención! "${soup.name}" está marcada como agotada en el inventario.`, {
         description: isAdmin
           ? 'Puedes agregarla si la cocina trajo más, pero recuerda reabastecer en Inventario.'
@@ -165,8 +168,10 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
         const updatedSoldCount = { ...(session.soldCount || {}) };
 
         ticketItems.forEach(item => {
-          const cur = updatedCurrentStock[item.soupId] ?? (session.initialStock?.[item.soupId] || 0);
-          updatedCurrentStock[item.soupId] = Math.max(0, cur - item.qty);
+          if (!isUnlimited) {
+            const cur = updatedCurrentStock[item.soupId] ?? (session.initialStock?.[item.soupId] || 0);
+            updatedCurrentStock[item.soupId] = Math.max(0, cur - item.qty);
+          }
           updatedSoldCount[item.soupId] = (updatedSoldCount[item.soupId] || 0) + item.qty;
         });
 
@@ -174,19 +179,23 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
         const newTotalCash = (session.totalCash || 0) + (paymentMethod === 'EFECTIVO' ? totalAmount : 0);
         const newTotalTransfer = (session.totalTransfer || 0) + (paymentMethod === 'TRANSFERENCIA' ? totalAmount : 0);
 
-        await updateDoc(sessionRef, {
-          currentStock: updatedCurrentStock,
+        const sessionUpdates = {
           soldCount: updatedSoldCount,
           totalSales: newTotalSales,
           totalCash: newTotalCash,
           totalTransfer: newTotalTransfer,
           updatedAt: serverTimestamp()
-        });
+        };
+        if (!isUnlimited) {
+          sessionUpdates.currentStock = updatedCurrentStock;
+        }
+
+        await updateDoc(sessionRef, sessionUpdates);
 
         if (onSessionUpdate) {
           onSessionUpdate({
             ...session,
-            currentStock: updatedCurrentStock,
+            currentStock: isUnlimited ? session.currentStock : updatedCurrentStock,
             soldCount: updatedSoldCount,
             totalSales: newTotalSales,
             totalCash: newTotalCash,
@@ -459,11 +468,24 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
 
         {/* BARRA SUPERIOR: ENCABEZADO DE SOPAS, BOTÓN DE GASTOS Y BOTÓN DE EXTRAS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '0.2rem 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <UtensilsCrossed size={20} color="var(--primary-color)" />
             <h2 style={{ margin: 0, fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800 }}>
               Sopas Disponibles ({mainSoups.length})
             </h2>
+            {isUnlimited && session && session.status === 'OPEN' && (
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: 'rgba(56, 189, 248, 0.2)',
+                color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.4)'
+              }}>
+                ♾️ Servicio Continuo
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -584,8 +606,8 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
           <div className="express-soup-grid">
             {mainSoups.map(soup => {
               const curStock = session?.currentStock?.[soup.id];
-              const isOutOfStock = session && session.status === 'OPEN' && curStock !== undefined && curStock <= 0;
-              const isLowStock = session && session.status === 'OPEN' && curStock !== undefined && curStock > 0 && curStock <= 5;
+              const isOutOfStock = !isUnlimited && session && session.status === 'OPEN' && curStock !== undefined && curStock <= 0;
+              const isLowStock = !isUnlimited && session && session.status === 'OPEN' && curStock !== undefined && curStock > 0 && curStock <= 5;
               const inTicket = ticketItems.find(it => it.soupId === soup.id);
 
               return (
@@ -601,10 +623,16 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
                   title={`Agregar 1 ${soup.name}`}
                 >
                   {/* BADGE DE STOCK DISPONIBLE */}
-                  {session && session.status === 'OPEN' && curStock !== undefined && (
-                    <div className={`express-soup-stock-badge ${isOutOfStock || isLowStock ? 'low' : ''}`}>
-                      {isOutOfStock ? 'AGOTADO' : `${curStock} disp.`}
-                    </div>
+                  {session && session.status === 'OPEN' && (
+                    isUnlimited ? (
+                      <div className="express-soup-stock-badge" style={{ backgroundColor: 'rgba(34, 197, 94, 0.25)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.4)' }}>
+                        ♾️ Continuo
+                      </div>
+                    ) : curStock !== undefined ? (
+                      <div className={`express-soup-stock-badge ${isOutOfStock || isLowStock ? 'low' : ''}`}>
+                        {isOutOfStock ? 'AGOTADO' : `${curStock} disp.`}
+                      </div>
+                    ) : null
                   )}
 
                   {inTicket && (
@@ -674,7 +702,7 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
                   {extraItems.map(extra => {
                     const inTicket = ticketItems.find(it => it.soupId === extra.id);
                     const curStock = session?.currentStock?.[extra.id];
-                    const isOutOfStock = session && session.status === 'OPEN' && curStock !== undefined && curStock <= 0;
+                    const isOutOfStock = !isUnlimited && session && session.status === 'OPEN' && curStock !== undefined && curStock <= 0;
 
                     return (
                       <div
@@ -691,10 +719,16 @@ export default function ExpressVenta({ activeBranch, branches = [], soups, sessi
                             ✓ {inTicket.qty} en orden
                           </div>
                         )}
-                        {session && session.status === 'OPEN' && curStock !== undefined && (
-                          <div className="express-extra-stock-badge">
-                            {isOutOfStock ? 'AGOTADO' : `${curStock} disp.`}
-                          </div>
+                        {session && session.status === 'OPEN' && (
+                          isUnlimited ? (
+                            <div className="express-extra-stock-badge" style={{ backgroundColor: 'rgba(34, 197, 94, 0.25)', color: '#4ade80' }}>
+                              ♾️ Disp.
+                            </div>
+                          ) : curStock !== undefined ? (
+                            <div className="express-extra-stock-badge">
+                              {isOutOfStock ? 'AGOTADO' : `${curStock} disp.`}
+                            </div>
+                          ) : null
                         )}
                         <div className="express-extra-name" style={{ marginTop: inTicket ? '1.2rem' : '0' }}>
                           {extra.name}

@@ -28,6 +28,7 @@ export default function ExpressTrasladoModal({
   const [loadingTransfers, setLoadingTransfers] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const isOriginUnlimited = session?.unlimitedInventory || session?.inventoryMode === 'UNLIMITED';
 
   // Opciones de destino: Otras sucursales + Cocina Central
   const otherBranches = (branches || []).filter(b => b.id !== activeBranch?.id);
@@ -134,9 +135,11 @@ export default function ExpressTrasladoModal({
     for (const s of soups) {
       const qty = quantities[s.id] || 0;
       if (qty > 0) {
-        const available = session?.currentStock?.[s.id] ?? 0;
-        if (session && session.status === 'OPEN' && qty > available) {
-          return toast.error(`No puedes trasladar ${qty} de "${s.name}". Solo tienes ${available} disponibles.`);
+        if (!isOriginUnlimited && session && session.status === 'OPEN') {
+          const available = session?.currentStock?.[s.id] ?? 0;
+          if (qty > available) {
+            return toast.error(`No puedes trasladar ${qty} de "${s.name}". Solo tienes ${available} disponibles.`);
+          }
         }
         itemsToTransfer.push({
           soupId: s.id,
@@ -181,19 +184,26 @@ export default function ExpressTrasladoModal({
 
       if (originSnap.exists()) {
         const oData = originSnap.data();
+        const oIsUnlimited = oData.unlimitedInventory || oData.inventoryMode === 'UNLIMITED';
         const newCurStock = { ...(oData.currentStock || {}) };
         const newTransferredOut = { ...(oData.transferredOut || {}) };
 
         itemsToTransfer.forEach(item => {
-          newCurStock[item.soupId] = Math.max(0, (newCurStock[item.soupId] || 0) - item.qty);
+          if (!oIsUnlimited) {
+            newCurStock[item.soupId] = Math.max(0, (newCurStock[item.soupId] || 0) - item.qty);
+          }
           newTransferredOut[item.soupId] = (newTransferredOut[item.soupId] || 0) + item.qty;
         });
 
-        await updateDoc(originSessionRef, {
-          currentStock: newCurStock,
+        const originUpdates = {
           transferredOut: newTransferredOut,
           updatedAt: serverTimestamp()
-        });
+        };
+        if (!oIsUnlimited) {
+          originUpdates.currentStock = newCurStock;
+        }
+
+        await updateDoc(originSessionRef, originUpdates);
       }
 
       // 3. Si el destino es otra sucursal, actualizar o preparar su sesión receptora
@@ -274,19 +284,26 @@ export default function ExpressTrasladoModal({
       const originSnap = await getDoc(originSessionRef);
       if (originSnap.exists()) {
         const oData = originSnap.data();
+        const oIsUnlimited = oData.unlimitedInventory || oData.inventoryMode === 'UNLIMITED';
         const newCurStock = { ...(oData.currentStock || {}) };
         const newTransferredOut = { ...(oData.transferredOut || {}) };
 
         (transfer.items || []).forEach(item => {
-          newCurStock[item.soupId] = (newCurStock[item.soupId] || 0) + (item.qty || 0);
+          if (!oIsUnlimited) {
+            newCurStock[item.soupId] = (newCurStock[item.soupId] || 0) + (item.qty || 0);
+          }
           newTransferredOut[item.soupId] = Math.max(0, (newTransferredOut[item.soupId] || 0) - (item.qty || 0));
         });
 
-        await updateDoc(originSessionRef, {
-          currentStock: newCurStock,
+        const cancelUpdates = {
           transferredOut: newTransferredOut,
           updatedAt: serverTimestamp()
-        });
+        };
+        if (!oIsUnlimited) {
+          cancelUpdates.currentStock = newCurStock;
+        }
+
+        await updateDoc(originSessionRef, cancelUpdates);
       }
 
       // 2. Si el destino era una sucursal, restar las unidades recibidas
@@ -578,8 +595,9 @@ export default function ExpressTrasladoModal({
                     {filteredSoups.map(s => {
                       const curStock = session?.currentStock?.[s.id] ?? 0;
                       const selectedQty = quantities[s.id] || 0;
-                      const isOutOfStock = session && session.status === 'OPEN' && curStock <= 0;
+                      const isOutOfStock = !isOriginUnlimited && session && session.status === 'OPEN' && curStock <= 0;
                       const isExtra = isExtraItem(s);
+                      const maxLimit = isOriginUnlimited ? undefined : curStock;
 
                       return (
                         <div
@@ -612,7 +630,7 @@ export default function ExpressTrasladoModal({
                                 {s.name}
                               </div>
                               <div style={{ fontSize: '0.74rem', color: isOutOfStock ? '#ef4444' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>Disponible: <strong>{curStock}</strong></span>
+                                <span>Disponible: <strong>{isOriginUnlimited ? '♾️ Continuo' : curStock}</strong></span>
                                 {isExtra && <span style={{ color: '#38bdf8' }}>• Extra</span>}
                               </div>
                             </div>
@@ -636,7 +654,7 @@ export default function ExpressTrasladoModal({
                                 color: '#ffffff'
                               }}
                               disabled={selectedQty <= 0}
-                              onClick={() => handleQtyChange(s.id, -1, curStock)}
+                              onClick={() => handleQtyChange(s.id, -1, maxLimit)}
                             >
                               <Minus size={15} />
                             </button>
@@ -644,10 +662,10 @@ export default function ExpressTrasladoModal({
                             <input
                               type="number"
                               min="0"
-                              max={curStock}
+                              max={maxLimit}
                               value={selectedQty || ''}
                               placeholder="0"
-                              onChange={e => handleManualInput(s.id, e.target.value, curStock)}
+                              onChange={e => handleManualInput(s.id, e.target.value, maxLimit)}
                               style={{
                                 width: '50px',
                                 height: '32px',
@@ -676,13 +694,31 @@ export default function ExpressTrasladoModal({
                                 border: '1px solid #475569',
                                 color: '#ffffff'
                               }}
-                              disabled={isOutOfStock || selectedQty >= curStock}
-                              onClick={() => handleQtyChange(s.id, 1, curStock)}
+                              disabled={!isOriginUnlimited && (isOutOfStock || selectedQty >= curStock)}
+                              onClick={() => handleQtyChange(s.id, 1, maxLimit)}
                             >
                               <Plus size={15} />
                             </button>
 
-                            {curStock > 0 && (
+                            {isOriginUnlimited ? (
+                              <button
+                                type="button"
+                                style={{
+                                  padding: '4px 7px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 800,
+                                  borderRadius: '6px',
+                                  background: selectedQty > 0 ? '#0284c7' : '#1e293b',
+                                  color: selectedQty > 0 ? '#ffffff' : '#38bdf8',
+                                  border: '1px solid #0284c7',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => handleQtyChange(s.id, 10, undefined)}
+                                title="Agregar +10 unidades"
+                              >
+                                +10
+                              </button>
+                            ) : curStock > 0 ? (
                               <button
                                 type="button"
                                 style={{
@@ -696,11 +732,11 @@ export default function ExpressTrasladoModal({
                                   cursor: 'pointer'
                                 }}
                                 onClick={() => handleSetMax(s.id, curStock)}
-                                title="Trasladar todas las existencias disponibles"
+                                title={`Trasladar todo el stock disponible (${curStock})`}
                               >
-                                Todo
+                                Max
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       );
