@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Calculator, CheckCircle2, AlertTriangle, Printer, History, DollarSign, PackageCheck, RefreshCw, BarChart3, Store, Receipt, Plus, Trash2, ArrowDownRight } from 'lucide-react';
+import { Calculator, CheckCircle2, AlertTriangle, Printer, History, DollarSign, PackageCheck, RefreshCw, BarChart3, Store, Receipt, Plus, Trash2, ArrowDownRight, ArrowLeftRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import ExpressGastoModal from './ExpressGastoModal';
+import ExpressTrasladoModal from './ExpressTrasladoModal';
 
 export default function ExpressCierre({ activeBranch, branches = [], onSelectBranch, soups, session, onSessionUpdate }) {
   const { currentUser } = useAuth();
@@ -13,6 +14,10 @@ export default function ExpressCierre({ activeBranch, branches = [], onSelectBra
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [trasladoModalOpen, setTrasladoModalOpen] = useState(false);
+  const [outboundTransfers, setOutboundTransfers] = useState([]);
+  const [inboundTransfers, setInboundTransfers] = useState([]);
+  const [allTransfersToday, setAllTransfersToday] = useState([]);
 
   // Arqueo de efectivo
   const [declaredCash, setDeclaredCash] = useState('');

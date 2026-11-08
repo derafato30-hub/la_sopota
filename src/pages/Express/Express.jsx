@@ -269,6 +269,7 @@ export default function Express() {
         {activeTab === 'VENTA' && (
           <ExpressVenta
             activeBranch={activeBranch}
+            branches={branches}
             soups={soups}
             session={session}
             isAdmin={isAdmin}

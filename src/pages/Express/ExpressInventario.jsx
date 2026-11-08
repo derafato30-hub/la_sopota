@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store, UtensilsCrossed, Coffee } from 'lucide-react';
+import { Package, Play, Plus, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, Store, UtensilsCrossed, Coffee, ArrowLeftRight } from 'lucide-react';
+import ExpressTrasladoModal from './ExpressTrasladoModal';
 import { useAuth } from '../../context/AuthContext';
 import { isExtraItem } from './ExpressConfigSopas';
 
@@ -12,6 +13,7 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
   const [initialStocks, setInitialStocks] = useState({});
   const [initialCash, setInitialCash] = useState('0');
   const [invFilter, setInvFilter] = useState('ALL'); // 'ALL' | 'SOPAS' | 'EXTRAS'
+  const [trasladoModalOpen, setTrasladoModalOpen] = useState(false);
   
   // Modal / Quick Restock state
   const [restockSoup, setRestockSoup] = useState(null);
@@ -321,7 +323,8 @@ export default function ExpressInventario({ activeBranch, branches = [], onSelec
 
           <div className="card" style={{ background: 'var(--surface-color)', border: 'var(--glass-border)', borderRadius: 'var(--border-radius-lg)', padding: '1.25rem', overflowX: 'auto' }}>
             {/* PESTAÑAS DE FILTRO */}
-            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
               <button
                 type="button"
                 className="btn-secondary"

@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toast } from 'sonner';
-import { Zap, ShoppingBag, Plus, Minus, Banknote, CreditCard, X, AlertTriangle, Coffee, UtensilsCrossed, Check, Receipt } from 'lucide-react';
+import { Zap, ShoppingBag, Plus, Minus, Banknote, CreditCard, X, AlertTriangle, Coffee, UtensilsCrossed, Check, Receipt, ArrowLeftRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isExtraItem } from './ExpressConfigSopas';
 import ExpressGastoModal from './ExpressGastoModal';
+import ExpressTrasladoModal from './ExpressTrasladoModal';
 
 const BANKS = ['Banco Atlántida', 'BAC Credomatic', 'Ficohsa', 'Banpaís', 'Davivienda', 'Occidente'];
 
-export default function ExpressVenta({ activeBranch, soups, session, isAdmin: propIsAdmin, onSessionUpdate, onOpenInventoryTab }) {
+export default function ExpressVenta({ activeBranch, branches = [], soups, session, isAdmin: propIsAdmin, onSessionUpdate, onOpenInventoryTab }) {
   const { currentUser, userRole, isAdmin: authIsAdmin } = useAuth();
   const roleUpper = (userRole || '').toString().trim().toUpperCase();
   const emailLower = (currentUser?.email || '').toLowerCase().trim();
@@ -34,6 +35,7 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
   const [mobileTicketOpen, setMobileTicketOpen] = useState(false);
   const [extrasDrawerOpen, setExtrasDrawerOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [trasladoModalOpen, setTrasladoModalOpen] = useState(false);
 
   // Clasificación de productos (Sopas principales vs Extras/Frescos)
   const mainSoups = soups.filter(s => s.active !== false && !isExtraItem(s));
@@ -464,6 +466,30 @@ export default function ExpressVenta({ activeBranch, soups, session, isAdmin: pr
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            {/* BOTÓN TRASLADO DE SOPAS */}
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{
+                padding: '0.55rem 1rem',
+                borderRadius: '25px',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                color: '#60a5fa',
+                border: '1.5px solid #3b82f6',
+                background: 'rgba(59, 130, 246, 0.12)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+              }}
+              onClick={() => setTrasladoModalOpen(true)}
+              title="Trasladar sopas hacia otra sucursal o devolver a Cocina Central (L. 0.00)"
+            >
+              <ArrowLeftRight size={17} />
+              <span>🔄 Traslado</span>
+            </button>
             {/* BOTÓN REGISTRAR GASTO DE SUCURSAL */}
             <button
               type="button"
